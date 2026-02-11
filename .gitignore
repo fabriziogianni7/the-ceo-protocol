@@ -1,0 +1,121 @@
+# ══════════════════════════════════════════════════════════════
+# MOLTIVERSE - Comprehensive .gitignore
+# ══════════════════════════════════════════════════════════════
+
+# ── Notes (legacy) ──
+notes
+
+# ── Environment & Secrets ──
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+*.secret
+
+# ── OS Generated ──
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── IDE & Editors ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ── Cursor (user-specific) ──
+.cursor/
+
+# ── Foundry / Solidity ──
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/.forge/
+*.sol.json
+
+# ── Node.js / JavaScript / TypeScript ──
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+*.tsbuildinfo
+
+# ── Next.js ──
+.next/
+out/
+build/
+.vercel
+next-env.d.ts
+
+# ── Testing & Coverage ──
+coverage/
+.nyc_output/
+*.lcov
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+.eggs/
+*.egg
+
+# ── Rust (if any tooling) ──
+target/
+Cargo.lock
+
+# ── Docker ──
+.docker/
+*.log
+
+# ── Temp & Cache ──
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+*.cache
+
+# ── Telegram Bot / OpenClaw ──
+.openclaw/
+.moltbot/
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# ── Misc ──
+*.bak
+*.backup
+*.orig
