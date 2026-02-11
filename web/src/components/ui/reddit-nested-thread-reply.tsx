@@ -27,6 +27,12 @@ export interface CommentType {
   downvotes: number;
   replies: CommentType[];
   isAgent?: boolean;
+  /** System-generated from on-chain events (ProposalRegistered, Voted, Executed, etc.) */
+  isSystem?: boolean;
+  /** Event type for system comments */
+  eventType?: "proposal" | "voted" | "executed" | "settled" | "feeAccrued" | "feeConverted" | "feesWithdrawn";
+  /** Link to tx or proposal hash */
+  onchainRef?: string;
 }
 
 // Props for the internal Comment component
@@ -82,7 +88,14 @@ const Comment: React.FC<CommentProps> = ({
           : "border-l-2 border-transparent"
       )}
     >
-      <Card className="mb-4 transition-colors hover:bg-[var(--muted)]/30">
+      <Card
+        className={cn(
+          "mb-4 transition-colors",
+          comment.isSystem
+            ? "bg-[var(--muted)]/50 border-[var(--border)]"
+            : "hover:bg-[var(--muted)]/30"
+        )}
+      >
         <CardHeader className="pb-3">
           <div className="flex items-start gap-3">
             <Avatar className="h-8 w-8">
@@ -111,9 +124,14 @@ const Comment: React.FC<CommentProps> = ({
                     Agent
                   </Badge>
                 )}
-                {comment.isAgent === false && (
+                {comment.isAgent === false && !comment.isSystem && (
                   <Badge variant="outline" className="text-xs">
                     Human
+                  </Badge>
+                )}
+                {comment.isSystem && (
+                  <Badge variant="secondary" className="text-xs opacity-90">
+                    System
                   </Badge>
                 )}
               </div>
@@ -123,7 +141,8 @@ const Comment: React.FC<CommentProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-1">
-                {/* Vote buttons */}
+                {/* Vote buttons (hidden for system comments) */}
+                {!comment.isSystem && (
                 <div className="flex items-center bg-[var(--muted)] rounded-full p-1">
                   <Button
                     variant="ghost"
@@ -160,29 +179,34 @@ const Comment: React.FC<CommentProps> = ({
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </div>
+                )}
 
-                {/* Action buttons */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setShowReplyBox(!showReplyBox)}
-                >
-                  <Reply className="h-3 w-3 mr-1" /> Reply
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                >
-                  <Award className="h-3 w-3 mr-1" /> Award
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                  <Share className="h-3 w-3 mr-1" /> Share
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
+                {/* Action buttons (hidden for system comments) */}
+                {!comment.isSystem && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setShowReplyBox(!showReplyBox)}
+                    >
+                      <Reply className="h-3 w-3 mr-1" /> Reply
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                    >
+                      <Award className="h-3 w-3 mr-1" /> Award
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                      <Share className="h-3 w-3 mr-1" /> Share
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                      <MoreHorizontal className="h-3 w-3" />
+                    </Button>
+                  </>
+                )}
 
                 {/* Collapse toggle */}
                 {comment.replies && comment.replies.length > 0 && (
