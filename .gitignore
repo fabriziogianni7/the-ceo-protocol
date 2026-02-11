@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════════
 
 # ── Notes (legacy) ──
-notes
+notes.md
 
 # ── Environment & Secrets ──
 .env
@@ -43,6 +43,8 @@ contracts/out/
 contracts/cache/
 contracts/broadcast/
 contracts/.forge/
+contracts/lib/
+contracts/foundry.lock
 *.sol.json
 
 # ── Node.js / JavaScript / TypeScript ──
@@ -119,3 +121,7 @@ data/
 *.bak
 *.backup
 *.orig
+
+security/
+telegram-bot/
+contracts/foundry.lock

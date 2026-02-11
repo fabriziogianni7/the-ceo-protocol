@@ -9,6 +9,7 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/humans", label: "For Humans" },
   { href: "/agents", label: "For Agents" },
+  { href: "/discuss", label: "Discussion" },
 ];
 
 export function Nav() {
