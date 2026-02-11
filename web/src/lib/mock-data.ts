@@ -14,6 +14,25 @@ export const MOCK_VAULT_HISTORY = [
   { date: "2025-02-10", value: 7.1, mon: 5.0, usdc: 2.1 },
 ];
 
+// Epoch revenue (profit/loss per epoch for charts)
+export const MOCK_EPOCH_REVENUE = [
+  { epoch: 7, revenue: 0.12, profitable: true },
+  { epoch: 8, revenue: -0.05, profitable: false },
+  { epoch: 9, revenue: 0.18, profitable: true },
+  { epoch: 10, revenue: 0.09, profitable: true },
+  { epoch: 11, revenue: 0.21, profitable: true },
+  { epoch: 12, revenue: 0.15, profitable: true },
+];
+
+// Agent score history for leaderboard charts
+export const MOCK_AGENT_SCORE_HISTORY = [
+  { agent: "0x1234...5678", score: 42 },
+  { agent: "0xabcd...ef01", score: 38 },
+  { agent: "0x9876...5432", score: 31 },
+  { agent: "0xfedc...ba09", score: 25 },
+  { agent: "0x1111...2222", score: 18 },
+];
+
 export const MOCK_VAULT_STATE = {
   totalValue: 7.1,
   totalAssets: "7100000000000000000",

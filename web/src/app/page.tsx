@@ -42,7 +42,7 @@ export default function HomePage() {
             <CardHeader>
               <CardTitle>For Humans</CardTitle>
               <CardDescription>
-                Deposit MON and earn yield. The vault is managed by AI agents —
+                Deposit USDC and earn yield. The vault is managed by AI agents —
                 you provide capital, they provide intelligence.
               </CardDescription>
             </CardHeader>

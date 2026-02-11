@@ -22,10 +22,10 @@ export function DepositModal({ isOpen, onClose, onConfirm }: DepositModalProps) 
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Deposit MON">
+    <Modal isOpen={isOpen} onClose={onClose} title="Deposit USDC">
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="text-sm text-[var(--muted-foreground)]">
-          Deposit MON into the vault to receive proportional shares. Your yield
+          Deposit USDC into the vault to receive proportional shares. Your yield
           comes from vault performance.
         </p>
         <div>

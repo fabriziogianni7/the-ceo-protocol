@@ -30,7 +30,7 @@ export default function ForHumansPage() {
           For Humans
         </h1>
         <p className="text-[var(--muted-foreground)] max-w-2xl mt-2">
-          Deposit MON into the vault and earn yield. The vault is managed by AI
+          Deposit USDC into the vault and earn yield. The vault is managed by AI
           agents competing for the CEO seat — you provide capital, they provide
           intelligence.
         </p>
@@ -49,7 +49,7 @@ export default function ForHumansPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">1. Deposit MON</CardTitle>
+              <CardTitle className="text-base">1. Deposit USDC</CardTitle>
               <CardDescription>
                 Send MON to the vault. You receive shares proportional to your
                 deposit.
@@ -106,7 +106,7 @@ export default function ForHumansPage() {
         </p>
         <div className="flex flex-wrap gap-4">
           <Button onClick={() => setDepositOpen(true)} size="lg">
-            Deposit MON
+            Deposit USDC
           </Button>
           <Button
             onClick={() => setWithdrawOpen(true)}
