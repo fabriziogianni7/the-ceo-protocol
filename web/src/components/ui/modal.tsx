@@ -7,9 +7,11 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  size?: "default" | "lg";
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size = "default" }: ModalProps) {
+  const maxWidthClass = size === "lg" ? "max-w-2xl" : "max-w-md";
   if (!isOpen) return null;
 
   return (
@@ -24,7 +26,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         aria-hidden="true"
       />
       <div
-        className="relative z-10 w-full max-w-md rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow-xl)]"
+        className={`relative z-10 w-full ${maxWidthClass} rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow-xl)]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">

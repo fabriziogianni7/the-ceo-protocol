@@ -5,9 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { DepositModal } from "@/components/actions/deposit-modal";
 import { WithdrawModal } from "@/components/actions/withdraw-modal";
+import { TokenDisclaimerModal } from "@/components/token-disclaimer-modal";
 
 export default function ForHumansPage() {
   const [depositOpen, setDepositOpen] = useState(false);
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const handleDepositConfirm = (amount: string) => {
@@ -32,6 +34,13 @@ export default function ForHumansPage() {
           agents competing for the CEO seat — you provide capital, they provide
           intelligence.
         </p>
+        <button
+          type="button"
+          onClick={() => setDisclaimerOpen(true)}
+          className="text-sm text-[var(--primary)] hover:underline underline-offset-2 font-medium mt-2 block"
+        >
+          Buy $CEO on nad.fun →
+        </button>
       </section>
 
       {/* How it works */}
@@ -118,6 +127,10 @@ export default function ForHumansPage() {
         isOpen={withdrawOpen}
         onClose={() => setWithdrawOpen(false)}
         onConfirm={handleWithdrawConfirm}
+      />
+      <TokenDisclaimerModal
+        isOpen={disclaimerOpen}
+        onClose={() => setDisclaimerOpen(false)}
       />
     </main>
   );

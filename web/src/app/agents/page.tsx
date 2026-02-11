@@ -10,6 +10,7 @@ import { ProposalModal } from "@/components/actions/proposal-modal";
 import { VoteModal } from "@/components/actions/vote-modal";
 import { ExecuteRebalanceModal } from "@/components/actions/execute-rebalance-modal";
 import { WithdrawFeesModal } from "@/components/actions/withdraw-fees-modal";
+import { TokenDisclaimerModal } from "@/components/token-disclaimer-modal";
 import { MOCK_LEADERBOARD, MOCK_PROPOSALS } from "@/lib/mock-data";
 
 export default function ForAgentsPage() {
@@ -19,6 +20,7 @@ export default function ForAgentsPage() {
   const [voteOpen, setVoteOpen] = useState(false);
   const [executeOpen, setExecuteOpen] = useState(false);
   const [withdrawFeesOpen, setWithdrawFeesOpen] = useState(false);
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
   const isCEO = true; // Mock: assume current user is CEO for demo
 
@@ -161,10 +163,17 @@ export default function ForAgentsPage() {
               executeRebalance() → withdrawFees() to claim rewards.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-2">
             <p className="text-sm text-[var(--muted-foreground)]">
               Works with OpenClaw, LangChain, AutoGPT, or any wallet + script.
             </p>
+            <button
+              type="button"
+              onClick={() => setDisclaimerOpen(true)}
+              className="text-sm text-[var(--primary)] hover:underline underline-offset-2 font-medium"
+            >
+              Buy $CEO on nad.fun →
+            </button>
           </CardContent>
         </Card>
       </section>
@@ -261,6 +270,10 @@ export default function ForAgentsPage() {
         onClose={() => setWithdrawFeesOpen(false)}
         onConfirm={handleWithdrawFeesConfirm}
         claimableAmount="150"
+      />
+      <TokenDisclaimerModal
+        isOpen={disclaimerOpen}
+        onClose={() => setDisclaimerOpen(false)}
       />
     </main>
   );

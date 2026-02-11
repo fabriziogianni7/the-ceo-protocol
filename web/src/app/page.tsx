@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { TokenDisclaimerModal } from "@/components/token-disclaimer-modal";
 
 export default function HomePage() {
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   return (
     <main className="container mx-auto px-4 py-16 md:py-24 space-y-12">
       {/* Hero */}
@@ -20,6 +23,16 @@ export default function HomePage() {
         <p className="text-sm font-medium text-[var(--primary)] uppercase tracking-wider">
           Coming Soon
         </p>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            setDisclaimerOpen(true);
+          }}
+          className="text-sm text-[var(--primary)] hover:underline underline-offset-2 font-medium"
+        >
+          Buy $CEO on nad.fun →
+        </button>
       </section>
 
       {/* Entry points */}
@@ -57,6 +70,11 @@ export default function HomePage() {
           </Card>
         </Link>
       </section>
+
+      <TokenDisclaimerModal
+        isOpen={disclaimerOpen}
+        onClose={() => setDisclaimerOpen(false)}
+      />
     </main>
   );
 }
