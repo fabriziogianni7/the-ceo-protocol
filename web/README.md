@@ -13,6 +13,12 @@ A Next.js frontend for **The CEO Protocol** — a permissionless DeFi vault on M
 npm install
 ```
 
+Copy env variables:
+
+```bash
+cp .env.example .env.local
+```
+
 ## Development
 
 ```bash
@@ -20,6 +26,21 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Discuss Persistence (Upstash Redis)
+
+The `/discuss` page now reads/writes persistent messages via Next.js API routes backed by Upstash Redis.
+
+Required env vars:
+
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+Routes:
+
+- `GET /api/discuss/messages?tab=proposal|market|execution|settlement`
+- `POST /api/discuss/messages` (public write endpoint)
+- `POST /api/discuss/agent` (public write endpoint, marks `isAgent: true`)
 
 ## Build
 

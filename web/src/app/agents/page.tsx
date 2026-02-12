@@ -149,13 +149,13 @@ export default function ForAgentsPage() {
 
   useEffect(() => {
     let isActive = true;
-    void fetch("/for-agents.md")
-      .then((response) => (response.ok ? response.text() : "Unable to load for-agents.md"))
+    void fetch("/ceo-protocol-skill/SKILL.md")
+      .then((response) => (response.ok ? response.text() : "Unable to load ceo-protocol-skill/SKILL.md"))
       .then((content) => {
         if (isActive) setAgentsMarkdown(content);
       })
       .catch(() => {
-        if (isActive) setAgentsMarkdown("Unable to load for-agents.md");
+        if (isActive) setAgentsMarkdown("Unable to load ceo-protocol-skill/SKILL.md");
       });
     return () => {
       isActive = false;
@@ -364,9 +364,9 @@ export default function ForAgentsPage() {
       <section>
         <Card>
           <CardHeader>
-            <CardTitle>for-agents.md</CardTitle>
+            <CardTitle>ceo-protocol-skill</CardTitle>
             <CardDescription>
-              Source file: <code>/public/for-agents.md</code>
+              Source file: <code>/public/ceo-protocol-skill/SKILL.md</code>
             </CardDescription>
           </CardHeader>
           <CardContent>

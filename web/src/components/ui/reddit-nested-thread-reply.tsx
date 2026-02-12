@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import Avatar from "boring-avatars";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -16,6 +16,13 @@ import {
   Share,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const VARIANTS = ["marble", "beam", "pixel", "sunset", "ring", "bauhaus"] as const;
+function pickVariant(name: string): (typeof VARIANTS)[number] {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  return VARIANTS[Math.abs(h) % VARIANTS.length];
+}
 
 // Define the type for a single comment
 export interface CommentType {
@@ -39,8 +46,10 @@ export interface CommentType {
 interface CommentProps {
   comment: CommentType;
   depth?: number;
-  onReply: (parentId: number | string, content: string) => void;
+  onReply: (parentId: number | string, content: string) => Promise<void>;
   isOp?: boolean;
+  isSubmitting?: boolean;
+  currentUserLabel?: string;
 }
 
 // Internal recursive component to render each comment and its replies
@@ -49,30 +58,30 @@ const Comment: React.FC<CommentProps> = ({
   depth = 0,
   onReply,
   isOp = false,
+  isSubmitting = false,
+  currentUserLabel = "You",
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [isReplySubmitting, setIsReplySubmitting] = useState(false);
 
   const handleVote = (voteType: "up" | "down") => {
     setUserVote(userVote === voteType ? null : voteType);
   };
 
-  const handleReplySubmit = () => {
+  const handleReplySubmit = async () => {
     if (replyText.trim()) {
-      onReply(comment.id, replyText);
-      setReplyText("");
-      setShowReplyBox(false);
+      setIsReplySubmitting(true);
+      try {
+        await onReply(comment.id, replyText);
+        setReplyText("");
+        setShowReplyBox(false);
+      } finally {
+        setIsReplySubmitting(false);
+      }
     }
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split("")
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
   };
 
   const netScore =
@@ -98,14 +107,13 @@ const Comment: React.FC<CommentProps> = ({
       >
         <CardHeader className="pb-3">
           <div className="flex items-start gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarImage
-                src={`https://api.dicebear.com/8.x/lorelei/svg?seed=${comment.author}`}
+            <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
+              <Avatar
+                name={comment.author}
+                size={32}
+                variant={pickVariant(comment.author)}
               />
-              <AvatarFallback className="text-xs bg-[var(--primary)]/10 text-[var(--primary)]">
-                {getInitials(comment.author)}
-              </AvatarFallback>
-            </Avatar>
+            </span>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -229,11 +237,13 @@ const Comment: React.FC<CommentProps> = ({
         {showReplyBox && (
           <CardContent className="pt-0">
             <div className="flex gap-3">
-              <Avatar className="h-7 w-7 mt-1">
-                <AvatarFallback className="text-xs bg-[var(--primary)]/10 text-[var(--primary)]">
-                  YU
-                </AvatarFallback>
-              </Avatar>
+              <span className="h-7 w-7 mt-1 shrink-0 overflow-hidden rounded-full">
+                <Avatar
+                  name={currentUserLabel}
+                  size={28}
+                  variant={pickVariant(currentUserLabel)}
+                />
+              </span>
               <div className="flex-1 space-y-2">
                 <Textarea
                   placeholder="What are your thoughts?"
@@ -245,9 +255,9 @@ const Comment: React.FC<CommentProps> = ({
                   <Button
                     size="sm"
                     onClick={handleReplySubmit}
-                    disabled={!replyText.trim()}
+                    disabled={!replyText.trim() || isReplySubmitting || isSubmitting}
                   >
-                    Comment
+                    {isReplySubmitting ? "Posting..." : "Comment"}
                   </Button>
                   <Button
                     size="sm"
@@ -277,6 +287,8 @@ const Comment: React.FC<CommentProps> = ({
                 comment={reply}
                 depth={depth + 1}
                 onReply={onReply}
+                isSubmitting={isSubmitting}
+                currentUserLabel={currentUserLabel}
               />
             ))}
           </div>
@@ -287,18 +299,33 @@ const Comment: React.FC<CommentProps> = ({
 
 // Main exported component
 export const CommentThread: React.FC<{
-  initialComments: CommentType[];
+  initialComments?: CommentType[];
+  comments?: CommentType[];
   placeholder?: string;
   currentUserLabel?: string;
+  onCreateComment?: (content: string) => Promise<void>;
+  onCreateReply?: (parentId: number | string, content: string) => Promise<void>;
+  isSubmitting?: boolean;
 }> = ({
-  initialComments,
+  initialComments = [],
+  comments,
   placeholder = "Start a discussion...",
   currentUserLabel = "You",
+  onCreateComment,
+  onCreateReply,
+  isSubmitting = false,
 }) => {
-  const [comments, setComments] = useState<CommentType[]>(initialComments);
+  const [localComments, setLocalComments] = useState<CommentType[]>(initialComments);
   const [newComment, setNewComment] = useState("");
+  const [isLocalSubmitting, setIsLocalSubmitting] = useState(false);
+  const displayComments = comments ?? localComments;
 
-  const handleReply = (parentId: number | string, content: string) => {
+  const handleReply = async (parentId: number | string, content: string) => {
+    if (onCreateReply) {
+      await onCreateReply(parentId, content);
+      return;
+    }
+
     const newReply: CommentType = {
       id: Date.now(),
       author: currentUserLabel,
@@ -323,11 +350,22 @@ export const CommentThread: React.FC<{
         return comment;
       });
     };
-    setComments(addReplyToComments(comments));
+    setLocalComments(addReplyToComments(displayComments));
   };
 
-  const handleNewComment = () => {
+  const handleNewComment = async () => {
     if (newComment.trim()) {
+      if (onCreateComment) {
+        setIsLocalSubmitting(true);
+        try {
+          await onCreateComment(newComment);
+          setNewComment("");
+        } finally {
+          setIsLocalSubmitting(false);
+        }
+        return;
+      }
+
       const comment: CommentType = {
         id: Date.now(),
         author: currentUserLabel,
@@ -337,7 +375,7 @@ export const CommentThread: React.FC<{
         downvotes: 0,
         replies: [],
       };
-      setComments([comment, ...comments]);
+      setLocalComments([comment, ...displayComments]);
       setNewComment("");
     }
   };
@@ -348,11 +386,13 @@ export const CommentThread: React.FC<{
       <Card>
         <CardContent className="pt-6">
           <div className="flex gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="text-xs bg-[var(--primary)]/10 text-[var(--primary)]">
-                YU
-              </AvatarFallback>
-            </Avatar>
+            <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
+              <Avatar
+                name={currentUserLabel}
+                size={32}
+                variant={pickVariant(currentUserLabel)}
+              />
+            </span>
             <div className="flex-1 space-y-3">
               <Textarea
                 placeholder={placeholder}
@@ -363,9 +403,10 @@ export const CommentThread: React.FC<{
               <div className="flex gap-2">
                 <Button
                   onClick={handleNewComment}
-                  disabled={!newComment.trim()}
+                  disabled={!newComment.trim() || isSubmitting || isLocalSubmitting}
                 >
-                  <MessageSquare className="h-4 w-4 mr-2" /> Post Comment
+                  <MessageSquare className="h-4 w-4 mr-2" />{" "}
+                  {isSubmitting || isLocalSubmitting ? "Posting..." : "Post Comment"}
                 </Button>
                 <Button
                   variant="outline"
@@ -382,18 +423,20 @@ export const CommentThread: React.FC<{
 
       {/* Comments list */}
       <div className="space-y-0">
-        {comments.map((comment, index) => (
+        {displayComments.map((comment, index) => (
           <Comment
             key={comment.id}
             comment={comment}
             depth={0}
             onReply={handleReply}
             isOp={index === 0}
+            isSubmitting={isSubmitting || isLocalSubmitting}
+            currentUserLabel={currentUserLabel}
           />
         ))}
       </div>
 
-      {comments.length === 0 && (
+      {displayComments.length === 0 && (
         <div className="text-center py-12 text-[var(--muted-foreground)]">
           <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>No comments yet. Be the first to start the discussion!</p>

@@ -525,4 +525,60 @@ export const ceoVaultAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  // Events for execution log
+  {
+    type: "event",
+    name: "ProposalRegistered",
+    inputs: [
+      { name: "epoch", type: "uint256", indexed: true },
+      { name: "proposalId", type: "uint256", indexed: true },
+      { name: "proposalHash", type: "bytes32", indexed: false },
+      { name: "proposer", type: "address", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "Voted",
+    inputs: [
+      { name: "epoch", type: "uint256", indexed: true },
+      { name: "proposalId", type: "uint256", indexed: true },
+      { name: "voter", type: "address", indexed: true },
+      { name: "support", type: "bool", indexed: false },
+      { name: "weight", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "Executed",
+    inputs: [
+      { name: "epoch", type: "uint256", indexed: true },
+      { name: "proposalId", type: "uint256", indexed: false },
+      { name: "ceo", type: "address", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "EpochSettled",
+    inputs: [
+      { name: "epoch", type: "uint256", indexed: true },
+      { name: "profitable", type: "bool", indexed: false },
+      { name: "revenue", type: "int256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "PerformanceFeeAccrued",
+    inputs: [
+      { name: "epoch", type: "uint256", indexed: true },
+      { name: "usdcAmount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "PerformanceFeeConverted",
+    inputs: [
+      { name: "ceoAmount", type: "uint256", indexed: false },
+      { name: "executor", type: "address", indexed: true },
+    ],
+  },
 ] as const;
