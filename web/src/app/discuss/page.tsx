@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useReadContract } from "wagmi";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CommentThread } from "@/components/ui/reddit-nested-thread-reply";
@@ -11,7 +12,6 @@ import {
   MOCK_EXECUTION_DISCUSSION,
   MOCK_SETTLEMENT_DISCUSSION,
   MOCK_PROPOSALS,
-  MOCK_EPOCH_STATE,
 } from "@/lib/mock-data";
 import {
   MessageSquare,
@@ -20,6 +20,8 @@ import {
   Play,
   CheckCircle2,
 } from "lucide-react";
+import { ceoVaultAbi } from "@/lib/contracts/abi/ceoVaultAbi";
+import { contractAddresses } from "@/lib/web3/addresses";
 
 type Tab = "proposal" | "market" | "execution" | "settlement";
 
@@ -42,12 +44,40 @@ function getPhaseLabel(phase: string): string {
 
 export default function DiscussPage() {
   const [tab, setTab] = useState<Tab>("proposal");
+  const { data: currentEpoch } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "s_currentEpoch",
+  });
+  const { data: isVotingOpen } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "isVotingOpen",
+  });
+  const { data: epochExecuted } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "s_epochExecuted",
+  });
+  const { data: pendingFee } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "s_pendingPerformanceFeeUsdc",
+  });
 
   const proposalComments = MOCK_PROPOSAL_DISCUSSION;
   const marketComments = MOCK_MARKET_DISCUSSION;
   const executionComments = MOCK_EXECUTION_DISCUSSION;
   const settlementComments = MOCK_SETTLEMENT_DISCUSSION;
   const activeProposal = MOCK_PROPOSALS[0];
+  const currentPhase =
+    isVotingOpen
+      ? "voting"
+      : pendingFee && pendingFee > BigInt(0)
+        ? "feePending"
+        : epochExecuted
+          ? "gracePeriod"
+          : "settled";
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "proposal", label: "Proposal Debate", icon: <FileText className="h-4 w-4" /> },
@@ -70,10 +100,10 @@ export default function DiscussPage() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-sm">
-            Epoch {MOCK_EPOCH_STATE.epoch}
+            Epoch {currentEpoch?.toString() ?? "-"}
           </Badge>
           <Badge variant="accent" className="text-sm">
-            {getPhaseLabel(MOCK_EPOCH_STATE.phase)}
+            {getPhaseLabel(currentPhase)}
           </Badge>
         </div>
       </section>

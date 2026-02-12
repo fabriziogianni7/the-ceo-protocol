@@ -4,17 +4,28 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/stats", label: "Performance" },
   { href: "/humans", label: "For Humans" },
   { href: "/agents", label: "For Agents" },
+  { href: "/devtools", label: "Devtools" },
   { href: "/discuss", label: "Discussion" },
 ];
 
 export function Nav() {
   const pathname = usePathname();
+  const { address, isConnected } = useAccount();
+  const { connect, connectors, isPending } = useConnect();
+  const { disconnect } = useDisconnect();
+  const primaryConnector = connectors[0];
+
+  const walletLabel = address
+    ? `${address.slice(0, 6)}...${address.slice(-4)}`
+    : "Connect Wallet";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--background)]/60">
@@ -44,6 +55,31 @@ export function Nav() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          {isConnected ? (
+            <>
+              <span className="text-xs text-[var(--muted-foreground)] font-mono">
+                {walletLabel}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => disconnect()}
+              >
+                Disconnect
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!primaryConnector) return;
+                connect({ connector: primaryConnector });
+              }}
+              disabled={isPending || !primaryConnector}
+            >
+              Connect
+            </Button>
+          )}
           <ThemeToggle />
         </div>
       </div>

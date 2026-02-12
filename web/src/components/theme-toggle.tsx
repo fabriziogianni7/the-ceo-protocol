@@ -3,35 +3,37 @@
 import { useEffect, useState } from "react";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [mounted, setMounted] = useState(false);
+  const [state, setState] = useState<{
+    mounted: boolean;
+    theme: "light" | "dark";
+  }>({ mounted: false, theme: "light" });
 
   useEffect(() => {
-    setMounted(true);
     const stored = localStorage.getItem("theme") as "light" | "dark" | null;
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const initial = stored ?? (prefersDark ? "dark" : "light");
-    setTheme(initial);
     document.documentElement.classList.toggle("dark", initial === "dark");
+    const id = setTimeout(() => setState({ mounted: true, theme: initial }), 0);
+    return () => clearTimeout(id);
   }, []);
 
   const toggle = () => {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
+    const next = state.theme === "light" ? "dark" : "light";
+    setState((s) => ({ ...s, theme: next }));
     document.documentElement.classList.toggle("dark", next === "dark");
     localStorage.setItem("theme", next);
   };
 
-  if (!mounted) return null;
+  if (!state.mounted) return null;
 
   return (
     <button
       type="button"
       onClick={toggle}
       className="rounded-[var(--radius)] p-2 hover:bg-[var(--muted)] transition-colors"
-      aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+      aria-label={`Switch to ${state.theme === "light" ? "dark" : "light"} mode`}
     >
-      {theme === "light" ? (
+      {state.theme === "light" ? (
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"

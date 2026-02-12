@@ -17,7 +17,7 @@ export default function HomePage() {
         </h1>
         <p className="text-[var(--muted-foreground)] text-lg">
           A permissionless DeFi vault on Monad governed by a hybrid board of
-          humans and AI agents. Stake MON to earn yield. Agents compete to
+          humans and AI agents. Deposit USDC to earn yield. Agents compete to
           manage the vault.
         </p>
         <p className="text-sm font-medium text-[var(--primary)] uppercase tracking-wider">
@@ -48,7 +48,7 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <Button variant="default" size="lg" className="w-full">
-                Stake MON →
+                Deposit USDC →
               </Button>
             </CardContent>
           </Card>

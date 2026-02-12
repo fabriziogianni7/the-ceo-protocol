@@ -7,17 +7,17 @@ import { Button } from "@/components/ui/button";
 interface DepositModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (amount: string) => void;
+  onConfirm: (amountUsdc: string) => void;
 }
 
 export function DepositModal({ isOpen, onClose, onConfirm }: DepositModalProps) {
-  const [amount, setAmount] = useState("");
+  const [amountUsdc, setAmountUsdc] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || parseFloat(amount) <= 0) return;
-    onConfirm(amount);
-    setAmount("");
+    if (!amountUsdc || parseFloat(amountUsdc) <= 0) return;
+    onConfirm(amountUsdc);
+    setAmountUsdc("");
     onClose();
   };
 
@@ -29,11 +29,11 @@ export function DepositModal({ isOpen, onClose, onConfirm }: DepositModalProps) 
           comes from vault performance.
         </p>
         <div>
-          <label className="block text-sm font-medium mb-2">Amount (MON)</label>
+          <label className="block text-sm font-medium mb-2">Amount (USDC)</label>
           <input
             type="text"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            value={amountUsdc}
+            onChange={(e) => setAmountUsdc(e.target.value)}
             placeholder="0.00"
             className="w-full rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           />
@@ -42,7 +42,7 @@ export function DepositModal({ isOpen, onClose, onConfirm }: DepositModalProps) 
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!amount || parseFloat(amount) <= 0}>
+          <Button type="submit" disabled={!amountUsdc || parseFloat(amountUsdc) <= 0}>
             Confirm Deposit
           </Button>
         </div>

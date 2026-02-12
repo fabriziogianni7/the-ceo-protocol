@@ -1,25 +1,112 @@
 "use client";
 
 import { useState } from "react";
+import { type Hex, zeroAddress } from "viem";
+import { useAccount, useReadContract, useWaitForTransactionReceipt } from "wagmi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DepositModal } from "@/components/actions/deposit-modal";
 import { WithdrawModal } from "@/components/actions/withdraw-modal";
 import { TokenDisclaimerModal } from "@/components/token-disclaimer-modal";
+import { ceoVaultAbi } from "@/lib/contracts/abi/ceoVaultAbi";
+import { erc20Abi } from "@/lib/contracts/abi/erc20Abi";
+import { contractAddresses } from "@/lib/web3/addresses";
+import { formatAmount, parseAmount } from "@/lib/contracts/format";
+import { useCeoVaultWrites, useTokenWrites } from "@/lib/contracts/write-hooks";
 
 export default function ForHumansPage() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [txHash, setTxHash] = useState<Hex | undefined>(undefined);
+  const { address, isConnected } = useAccount();
+  const vaultWrites = useCeoVaultWrites();
+  const tokenWrites = useTokenWrites();
 
-  const handleDepositConfirm = (amount: string) => {
-    console.log("[Mock] Deposit", amount, "MON");
-    alert(`[Mock] Deposit confirmed: ${amount} MON`);
+  const { data: totalAssets } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "totalAssets",
+  });
+  const { data: userShares } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "balanceOf",
+    args: [address ?? zeroAddress],
+    query: { enabled: Boolean(address) },
+  });
+  const { data: userUsdcBalance } = useReadContract({
+    address: contractAddresses.usdc,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [address ?? zeroAddress],
+    query: { enabled: Boolean(address) },
+  });
+  const { data: usdcAllowance } = useReadContract({
+    address: contractAddresses.usdc,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, contractAddresses.ceoVault],
+    query: { enabled: Boolean(address) },
+  });
+  const { data: maxDeposit } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "maxDeposit",
+    args: [address ?? zeroAddress],
+    query: { enabled: Boolean(address) },
+  });
+  const { data: maxWithdraw } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "maxWithdraw",
+    args: [address ?? zeroAddress],
+    query: { enabled: Boolean(address) },
+  });
+  const { data: minDeposit } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "s_minDeposit",
+  });
+  const { data: minWithdraw } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "s_minWithdraw",
+  });
+
+  const txReceipt = useWaitForTransactionReceipt({
+    hash: txHash,
+    query: { enabled: Boolean(txHash) },
+  });
+
+  const handleDepositConfirm = async (amountUsdc: string) => {
+    if (!address) return;
+    const assets = parseAmount(amountUsdc, 6);
+    if (assets <= BigInt(0)) return;
+    try {
+      if ((usdcAllowance ?? BigInt(0)) < assets) {
+        const approvalHash = await tokenWrites.approveUsdc(contractAddresses.ceoVault, assets);
+        setTxHash(approvalHash);
+      }
+      const hash = await vaultWrites.deposit(assets, address);
+      setTxHash(hash);
+    } catch (error) {
+      console.error(error);
+      alert("Deposit transaction failed. Check wallet and try again.");
+    }
   };
 
-  const handleWithdrawConfirm = (shares: string) => {
-    console.log("[Mock] Withdraw", shares, "shares");
-    alert(`[Mock] Withdraw confirmed: ${shares} shares`);
+  const handleWithdrawConfirm = async (assetsUsdc: string) => {
+    if (!address) return;
+    const assets = parseAmount(assetsUsdc, 6);
+    if (assets <= BigInt(0)) return;
+    try {
+      const hash = await vaultWrites.withdraw(assets, address, address);
+      setTxHash(hash);
+    } catch (error) {
+      console.error(error);
+      alert("Withdraw transaction failed. Check wallet and try again.");
+    }
   };
 
   return (
@@ -51,7 +138,7 @@ export default function ForHumansPage() {
             <CardHeader>
               <CardTitle className="text-base">1. Deposit USDC</CardTitle>
               <CardDescription>
-                Send MON to the vault. You receive shares proportional to your
+                Deposit USDC into the vault. You receive shares proportional to your
                 deposit.
               </CardDescription>
             </CardHeader>
@@ -70,11 +157,40 @@ export default function ForHumansPage() {
               <CardTitle className="text-base">3. Earn Yield</CardTitle>
               <CardDescription>
                 Vault performance determines your returns. Withdraw anytime by
-                burning shares for your proportional MON.
+                burning shares for your proportional USDC.
               </CardDescription>
             </CardHeader>
           </Card>
         </div>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold mb-4">Live Vault Data</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Total Assets</CardTitle>
+              <CardDescription>{formatAmount(totalAssets, 6)} USDC</CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Your USDC</CardTitle>
+              <CardDescription>{formatAmount(userUsdcBalance, 6)} USDC</CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Your Shares</CardTitle>
+              <CardDescription>{formatAmount(userShares, 18)} ceoUSDC</CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+        <p className="text-xs text-[var(--muted-foreground)] mt-3">
+          Min deposit: {formatAmount(minDeposit, 6)} USDC | Min withdraw:{" "}
+          {formatAmount(minWithdraw, 6)} USDC | Max deposit now:{" "}
+          {formatAmount(maxDeposit, 6)} USDC
+        </p>
       </section>
 
       {/* Human interaction */}
@@ -101,21 +217,32 @@ export default function ForHumansPage() {
       <section>
         <h2 className="text-xl font-semibold mb-4">Actions</h2>
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
-          Click an action → Modal opens to add values → Confirm → Action
-          executes (mock for now).
+          Connect your wallet, then confirm actions on Monad.
         </p>
         <div className="flex flex-wrap gap-4">
-          <Button onClick={() => setDepositOpen(true)} size="lg">
+          <Button onClick={() => setDepositOpen(true)} size="lg" disabled={!isConnected}>
             Deposit USDC
           </Button>
           <Button
             onClick={() => setWithdrawOpen(true)}
             variant="outline"
             size="lg"
+            disabled={!isConnected}
           >
-            Withdraw Shares
+            Withdraw USDC
           </Button>
         </div>
+        {txHash && (
+          <p className="text-xs text-[var(--muted-foreground)] mt-3 font-mono break-all">
+            Tx: {txHash}{" "}
+            {txReceipt.isLoading ? "pending..." : txReceipt.isSuccess ? "confirmed" : ""}
+          </p>
+        )}
+        {!isConnected && (
+          <p className="text-xs text-[var(--muted-foreground)] mt-2">
+            Connect wallet from the top-right to start.
+          </p>
+        )}
       </section>
 
       <DepositModal
@@ -127,6 +254,7 @@ export default function ForHumansPage() {
         isOpen={withdrawOpen}
         onClose={() => setWithdrawOpen(false)}
         onConfirm={handleWithdrawConfirm}
+        maxAssets={formatAmount(maxWithdraw, 6)}
       />
       <TokenDisclaimerModal
         isOpen={disclaimerOpen}

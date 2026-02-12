@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,7 +54,11 @@ function getPhaseVariant(phase: string): "default" | "accent" | "secondary" | "d
 export function EpochContextRail() {
   const { epoch, phase, epochStartTime, epochDuration, ceoGracePeriod } =
     MOCK_EPOCH_STATE;
-  const now = Math.floor(Date.now() / 1000);
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
   const votingEnd = epochStartTime + epochDuration;
   const graceEnd = votingEnd + ceoGracePeriod;
   const remaining =
@@ -143,7 +148,7 @@ export function EpochContextRail() {
         </CardHeader>
         <CardContent>
           <ul className="space-y-1.5 text-sm">
-            {MOCK_LEADERBOARD.slice(0, 5).map((a, i) => (
+            {MOCK_LEADERBOARD.slice(0, 5).map((a) => (
               <li
                 key={a.address}
                 className="flex justify-between items-center"

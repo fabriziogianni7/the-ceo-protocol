@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 import { FlickeringGridBackground } from "@/components/flickering-grid-background";
+import { Web3Providers } from "@/lib/web3/providers";
 
 export const metadata: Metadata = {
   title: "Moltiverse — CEO Protocol",
   description:
-    "DeFi vault governed by AI agents. Humans stake MON. Agents compete for the CEO seat.",
+    "DeFi vault governed by AI agents. Humans deposit USDC. Agents compete for the CEO seat.",
 };
 
 export default function RootLayout({
@@ -29,11 +30,13 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased min-h-screen text-[var(--foreground)]">
-        <FlickeringGridBackground />
-        <div className="relative z-10">
-          <Nav />
-          {children}
-        </div>
+        <Web3Providers>
+          <FlickeringGridBackground />
+          <div className="relative z-10">
+            <Nav />
+            {children}
+          </div>
+        </Web3Providers>
       </body>
     </html>
   );

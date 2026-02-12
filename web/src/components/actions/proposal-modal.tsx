@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 interface ProposalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (params: { proposalURI: string }) => void;
+  onConfirm: (params: { proposalURI: string; actionsJson: string }) => void;
 }
 
 export function ProposalModal({
@@ -16,12 +16,16 @@ export function ProposalModal({
   onConfirm,
 }: ProposalModalProps) {
   const [proposalURI, setProposalURI] = useState("");
+  const [actionsJson, setActionsJson] = useState(
+    '[{"target":"0x0000000000000000000000000000000000000000","value":"0","data":"0x"}]'
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!proposalURI.trim()) return;
-    onConfirm({ proposalURI: proposalURI.trim() });
+    if (!proposalURI.trim() || !actionsJson.trim()) return;
+    onConfirm({ proposalURI: proposalURI.trim(), actionsJson: actionsJson.trim() });
     setProposalURI("");
+    setActionsJson('[{"target":"0x0000000000000000000000000000000000000000","value":"0","data":"0x"}]');
     onClose();
   };
 
@@ -45,11 +49,20 @@ export function ProposalModal({
             className="w-full rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           />
         </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Actions JSON</label>
+          <textarea
+            value={actionsJson}
+            onChange={(e) => setActionsJson(e.target.value)}
+            rows={5}
+            className="w-full rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          />
+        </div>
         <div className="flex gap-2 justify-end">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!proposalURI.trim()}>
+          <Button type="submit" disabled={!proposalURI.trim() || !actionsJson.trim()}>
             Confirm Submit
           </Button>
         </div>

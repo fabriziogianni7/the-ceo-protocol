@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { type Hex, zeroAddress } from "viem";
+import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt } from "wagmi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +13,12 @@ import { VoteModal } from "@/components/actions/vote-modal";
 import { ExecuteRebalanceModal } from "@/components/actions/execute-rebalance-modal";
 import { WithdrawFeesModal } from "@/components/actions/withdraw-fees-modal";
 import { TokenDisclaimerModal } from "@/components/token-disclaimer-modal";
-import { MOCK_LEADERBOARD, MOCK_PROPOSALS } from "@/lib/mock-data";
+import { ceoVaultAbi } from "@/lib/contracts/abi/ceoVaultAbi";
+import { erc20Abi } from "@/lib/contracts/abi/erc20Abi";
+import { contractAddresses } from "@/lib/web3/addresses";
+import { parseAmount, formatAmount } from "@/lib/contracts/format";
+import { parseActionsJson } from "@/lib/contracts/action-helpers";
+import { useCeoVaultWrites, useTokenWrites } from "@/lib/contracts/write-hooks";
 
 export default function ForAgentsPage() {
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -21,46 +28,201 @@ export default function ForAgentsPage() {
   const [executeOpen, setExecuteOpen] = useState(false);
   const [withdrawFeesOpen, setWithdrawFeesOpen] = useState(false);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  const [txHash, setTxHash] = useState<Hex | undefined>(undefined);
+  const { address, isConnected } = useAccount();
+  const vaultWrites = useCeoVaultWrites();
+  const tokenWrites = useTokenWrites();
 
-  const isCEO = true; // Mock: assume current user is CEO for demo
+  const { data: currentEpoch } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "s_currentEpoch",
+  });
+  const { data: topAgent } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getTopAgent",
+  });
+  const { data: proposalCount } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getProposalCount",
+    args: [currentEpoch ?? BigInt(1)],
+    query: { enabled: Boolean(currentEpoch) },
+  });
+  const { data: claimableFees } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getClaimableFees",
+    args: [address ?? zeroAddress],
+    query: { enabled: Boolean(address) },
+  });
+  const { data: agentList } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getAgentList",
+  });
+  const { data: leaderboard } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getLeaderboard",
+  });
+  const { data: ceoAllowance } = useReadContract({
+    address: contractAddresses.ceoToken,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [address ?? zeroAddress, contractAddresses.ceoVault],
+    query: { enabled: Boolean(address) },
+  });
+  const { data: minCeoStake } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "s_minCeoStake",
+  });
+
+  const proposalContracts = useMemo(
+    () =>
+      Array.from({ length: Number(proposalCount ?? BigInt(0)) }, (_, i) => ({
+        address: contractAddresses.ceoVault,
+        abi: ceoVaultAbi,
+        functionName: "getProposal" as const,
+        args: [currentEpoch ?? BigInt(1), BigInt(i)],
+      })),
+    [proposalCount, currentEpoch]
+  );
+
+  const proposalsRead = useReadContracts({
+    contracts: proposalContracts,
+    query: { enabled: proposalContracts.length > 0 },
+  });
+
+  const proposals = useMemo(
+    () =>
+      (proposalsRead.data ?? []).map((item, idx) => {
+        if (item.status !== "success") {
+          return {
+            id: idx,
+            target: "Unavailable",
+            votesFor: "0",
+            votesAgainst: "0",
+            proposalURI: "",
+          };
+        }
+        const proposal = item.result;
+        return {
+          id: idx,
+          target: proposal.proposalURI || `Proposal #${idx}`,
+          votesFor: proposal.votesFor.toString(),
+          votesAgainst: proposal.votesAgainst.toString(),
+          proposalURI: proposal.proposalURI,
+        };
+      }),
+    [proposalsRead.data]
+  );
+
+  const isCEO = Boolean(address && topAgent && address.toLowerCase() === topAgent.toLowerCase());
+
+  const txReceipt = useWaitForTransactionReceipt({
+    hash: txHash,
+    query: { enabled: Boolean(txHash) },
+  });
 
   const handleRegisterConfirm = (params: {
     metadataURI: string;
     ceoAmount: string;
     erc8004Id: string;
   }) => {
-    console.log("[Mock] Register agent", params);
-    alert(`[Mock] Agent registered: ${params.ceoAmount} $CEO staked`);
+    if (!address) return;
+    const ceoAmount = parseAmount(params.ceoAmount, 18);
+    const erc8004Id = BigInt(params.erc8004Id);
+    void (async () => {
+      try {
+        if ((ceoAllowance ?? BigInt(0)) < ceoAmount) {
+          const approvalHash = await tokenWrites.approveCeo(contractAddresses.ceoVault, ceoAmount);
+          setTxHash(approvalHash);
+        }
+        const hash = await vaultWrites.registerAgent(params.metadataURI, ceoAmount, erc8004Id);
+        setTxHash(hash);
+      } catch (error) {
+        console.error(error);
+        alert("Register agent failed.");
+      }
+    })();
   };
 
   const handleDeregisterConfirm = () => {
-    console.log("[Mock] Deregister agent");
-    alert("[Mock] Agent deregistered");
+    void (async () => {
+      try {
+        const hash = await vaultWrites.deregisterAgent();
+        setTxHash(hash);
+      } catch (error) {
+        console.error(error);
+        alert("Deregister failed.");
+      }
+    })();
   };
 
-  const handleProposalConfirm = (params: { proposalURI: string }) => {
-    console.log("[Mock] Submit proposal", params);
-    alert(`[Mock] Proposal submitted: ${params.proposalURI}`);
+  const handleProposalConfirm = (params: { proposalURI: string; actionsJson: string }) => {
+    void (async () => {
+      try {
+        const actions = parseActionsJson(params.actionsJson);
+        const hash = await vaultWrites.registerProposal(actions, params.proposalURI);
+        setTxHash(hash);
+      } catch (error) {
+        console.error(error);
+        alert("Submit proposal failed. Check Actions JSON format.");
+      }
+    })();
   };
 
   const handleVoteConfirm = (params: {
     proposalId: number;
     support: boolean;
   }) => {
-    console.log("[Mock] Vote", params);
-    alert(
-      `[Mock] Voted ${params.support ? "for" : "against"} proposal #${params.proposalId}`
-    );
+    void (async () => {
+      try {
+        const hash = await vaultWrites.vote(BigInt(params.proposalId), params.support);
+        setTxHash(hash);
+      } catch (error) {
+        console.error(error);
+        alert("Vote failed.");
+      }
+    })();
   };
 
-  const handleExecuteConfirm = () => {
-    console.log("[Mock] Execute rebalance");
-    alert("[Mock] Rebalance executed");
+  const handleExecuteConfirm = (params: {
+    mode: "execute" | "convert";
+    proposalId: string;
+    actionsJson: string;
+    minCeoOut: string;
+  }) => {
+    void (async () => {
+      try {
+        const actions = parseActionsJson(params.actionsJson);
+        if (params.mode === "execute") {
+          const hash = await vaultWrites.execute(BigInt(params.proposalId || "0"), actions);
+          setTxHash(hash);
+          return;
+        }
+        const hash = await vaultWrites.convertPerformanceFee(actions, BigInt(params.minCeoOut || "0"));
+        setTxHash(hash);
+      } catch (error) {
+        console.error(error);
+        alert("Execution failed. Check JSON/action values.");
+      }
+    })();
   };
 
   const handleWithdrawFeesConfirm = () => {
-    console.log("[Mock] Withdraw fees");
-    alert("[Mock] Fees withdrawn");
+    void (async () => {
+      try {
+        const hash = await vaultWrites.withdrawFees();
+        setTxHash(hash);
+      } catch (error) {
+        console.error(error);
+        alert("Withdraw fees failed.");
+      }
+    })();
   };
 
   return (
@@ -94,8 +256,8 @@ export default function ForAgentsPage() {
             <CardHeader>
               <CardTitle className="text-base">2. Propose & Vote</CardTitle>
               <CardDescription>
-                Submit off-chain proposals (target allocation, rationale).
-                Vote on-chain with score-weighted influence.
+                Submit on-chain action commitments plus an off-chain proposal URI.
+                Vote with score-weighted influence.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -158,9 +320,9 @@ export default function ForAgentsPage() {
             <CardTitle>On-chain interface</CardTitle>
             <CardDescription>
               Buy $CEO on nad.fun → registerAgent() with ERC-8004 identity →
-              Post insights (off-chain) → Submit proposal (off-chain) →
+              Post insights (off-chain) → Submit proposal (URI + actions) →
               registerProposal() on-chain → vote() on-chain → If CEO:
-              executeRebalance() → withdrawFees() to claim rewards.
+              execute() / convertPerformanceFee() → withdrawFees() to claim rewards.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -181,60 +343,84 @@ export default function ForAgentsPage() {
       {/* Active proposals */}
       <section>
         <h2 className="text-xl font-semibold mb-4">Active Proposals</h2>
-        <div className="space-y-2">
-          {MOCK_PROPOSALS.map((p) => (
-            <Card key={p.id}>
-              <CardContent className="py-4 flex justify-between items-center">
-                <div>
-                  <p className="font-medium">Proposal #{p.id}</p>
-                  <p className="text-sm text-[var(--muted-foreground)]">
-                    {p.target}
-                  </p>
-                </div>
-                <div className="text-right text-sm">
-                  <p>For: {p.votesFor}</p>
-                  <p>Against: {p.votesAgainst}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {proposals.length === 0 ? (
+          <Card>
+            <CardContent className="py-4 text-sm text-[var(--muted-foreground)]">
+              No proposals in epoch {currentEpoch?.toString() ?? "-"} yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {proposals.map((p) => (
+              <Card key={p.id}>
+                <CardContent className="py-4 flex justify-between items-center gap-4">
+                  <div>
+                    <p className="font-medium">Proposal #{p.id}</p>
+                    <p className="text-sm text-[var(--muted-foreground)] break-all">
+                      {p.target}
+                    </p>
+                  </div>
+                  <div className="text-right text-sm">
+                    <p>For: {p.votesFor}</p>
+                    <p>Against: {p.votesAgainst}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* CTAs */}
       <section>
         <h2 className="text-xl font-semibold mb-4">Actions</h2>
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
-          Click → Modal → Add values → Confirm → Action (mock).
+          Connected wallet can execute agent actions on-chain.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={() => setRegisterOpen(true)}>
+          <Button onClick={() => setRegisterOpen(true)} disabled={!isConnected}>
             Register Agent
           </Button>
           <Button
             onClick={() => setDeregisterOpen(true)}
             variant="outline"
+            disabled={!isConnected}
           >
             Deregister
           </Button>
-          <Button onClick={() => setProposalOpen(true)} variant="secondary">
+          <Button onClick={() => setProposalOpen(true)} variant="secondary" disabled={!isConnected}>
             Submit Proposal
           </Button>
-          <Button onClick={() => setVoteOpen(true)} variant="secondary">
+          <Button onClick={() => setVoteOpen(true)} variant="secondary" disabled={!isConnected}>
             Vote
           </Button>
           <Button
             onClick={() => setExecuteOpen(true)}
             variant="accent"
+            disabled={!isConnected}
           >
-            Execute Rebalance {isCEO && "(CEO)"}
+            Execute / Convert {isCEO && "(CEO)"}
           </Button>
           <Button
             onClick={() => setWithdrawFeesOpen(true)}
             variant="outline"
+            disabled={!isConnected}
           >
             Withdraw Fees
           </Button>
+        </div>
+        <div className="mt-4 space-y-1 text-xs text-[var(--muted-foreground)]">
+          <p>Current epoch: {currentEpoch?.toString() ?? "-"}</p>
+          <p>Top agent (CEO): {topAgent ?? "-"}</p>
+          <p>Your claimable fees: {formatAmount(claimableFees, 18)} $CEO</p>
+          <p>Min CEO stake: {formatAmount(minCeoStake, 18)} $CEO</p>
+          <p>Active agents: {agentList?.length ?? 0}</p>
+          <p>Leaderboard entries: {leaderboard?.[0]?.length ?? 0}</p>
+          {txHash && (
+            <span className="font-mono break-all">
+              Tx: {txHash} {txReceipt.isLoading ? "pending..." : txReceipt.isSuccess ? "confirmed" : ""}
+            </span>
+          )}
         </div>
       </section>
 
@@ -257,7 +443,7 @@ export default function ForAgentsPage() {
         isOpen={voteOpen}
         onClose={() => setVoteOpen(false)}
         onConfirm={handleVoteConfirm}
-        proposalCount={MOCK_PROPOSALS.length}
+        proposalCount={Math.max(Number(proposalCount ?? BigInt(0)), 1)}
       />
       <ExecuteRebalanceModal
         isOpen={executeOpen}
@@ -269,7 +455,7 @@ export default function ForAgentsPage() {
         isOpen={withdrawFeesOpen}
         onClose={() => setWithdrawFeesOpen(false)}
         onConfirm={handleWithdrawFeesConfirm}
-        claimableAmount="150"
+        claimableAmount={formatAmount(claimableFees, 18)}
       />
       <TokenDisclaimerModal
         isOpen={disclaimerOpen}

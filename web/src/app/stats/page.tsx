@@ -1,16 +1,14 @@
 "use client";
 
+import { useMemo } from "react";
+import { useReadContract, useReadContracts } from "wagmi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { VaultValueChart } from "@/components/charts/vault-value-chart";
 import { VaultCompositionChart } from "@/components/charts/vault-composition-chart";
 import {
-  MOCK_VAULT_STATE,
   MOCK_VAULT_HISTORY,
   MOCK_EPOCH_REVENUE,
   MOCK_AGENT_SCORE_HISTORY,
-  MOCK_PROPOSALS,
-  MOCK_EPOCH_STATE,
-  MOCK_LEADERBOARD,
 } from "@/lib/mock-data";
 import {
   BarChart as RechartsBarChart,
@@ -25,10 +23,119 @@ import {
   Line,
 } from "recharts";
 import { TrendingUp, Wallet, Users, Target, Award } from "lucide-react";
+import { ceoVaultAbi } from "@/lib/contracts/abi/ceoVaultAbi";
+import { contractAddresses } from "@/lib/web3/addresses";
+import { formatAmount, shortenAddress } from "@/lib/contracts/format";
 
 export default function StatsPage() {
-  const totalValue = MOCK_VAULT_STATE.totalValue;
-  const composition = MOCK_VAULT_STATE.composition;
+  const { data: totalAssets } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "totalAssets",
+  });
+  const { data: deployedValue } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getDeployedValue",
+  });
+  const { data: currentEpoch } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "s_currentEpoch",
+  });
+  const { data: isVotingOpen } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "isVotingOpen",
+  });
+  const { data: agentList } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getAgentList",
+  });
+  const { data: leaderboardRaw } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getLeaderboard",
+  });
+  const { data: proposalCount } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getProposalCount",
+    args: [currentEpoch ?? BigInt(1)],
+    query: { enabled: Boolean(currentEpoch) },
+  });
+
+  const proposalContracts = useMemo(
+    () =>
+      Array.from({ length: Number(proposalCount ?? BigInt(0)) }, (_, i) => ({
+        address: contractAddresses.ceoVault,
+        abi: ceoVaultAbi,
+        functionName: "getProposal" as const,
+        args: [currentEpoch ?? BigInt(1), BigInt(i)],
+      })),
+    [proposalCount, currentEpoch]
+  );
+
+  const proposalsRead = useReadContracts({
+    contracts: proposalContracts,
+    query: { enabled: proposalContracts.length > 0 },
+  });
+
+  const proposals = useMemo(
+    () =>
+      (proposalsRead.data ?? [])
+        .map((item, idx) => {
+          if (item.status !== "success") return null;
+          return {
+            id: idx,
+            votesFor: Number(item.result.votesFor),
+            votesAgainst: Number(item.result.votesAgainst),
+          };
+        })
+        .filter(Boolean) as { id: number; votesFor: number; votesAgainst: number }[],
+    [proposalsRead.data]
+  );
+
+  const winningNet =
+    proposals.length === 0
+      ? 0
+      : proposals.reduce((max, p) => Math.max(max, p.votesFor - p.votesAgainst), Number.MIN_SAFE_INTEGER);
+
+  const leaderboardSeries = useMemo(() => {
+    if (!leaderboardRaw) return MOCK_AGENT_SCORE_HISTORY;
+    const [agents, scores] = leaderboardRaw;
+    return agents.map((agent, idx) => ({
+      agent: shortenAddress(agent),
+      score: Number(scores[idx] ?? BigInt(0)),
+    }));
+  }, [leaderboardRaw]);
+
+  const proposalsSeries = useMemo(
+    () =>
+      proposals.map((p) => ({
+        name: `#${p.id}`,
+        for: p.votesFor,
+        against: p.votesAgainst,
+      })),
+    [proposals]
+  );
+
+  const totalAssetsRaw = totalAssets ?? BigInt(0);
+  const deployedRaw = deployedValue ?? BigInt(0);
+  const idleRaw = totalAssetsRaw > deployedRaw ? totalAssetsRaw - deployedRaw : BigInt(0);
+  const composition = [
+    {
+      name: "Deployed",
+      value: Number(deployedRaw) / 1e6,
+      percent: totalAssetsRaw > BigInt(0) ? Number((deployedRaw * BigInt(10000)) / totalAssetsRaw) / 100 : 0,
+    },
+    {
+      name: "Idle",
+      value: Number(idleRaw) / 1e6,
+      percent: totalAssetsRaw > BigInt(0) ? Number((idleRaw * BigInt(10000)) / totalAssetsRaw) / 100 : 0,
+    },
+  ];
 
   return (
     <main className="container mx-auto px-4 py-8 space-y-10">
@@ -51,7 +158,7 @@ export default function StatsPage() {
             <Wallet className="h-4 w-4 text-[var(--muted-foreground)]" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalValue} USDC</p>
+            <p className="text-2xl font-bold">{formatAmount(totalAssets, 6)} USDC</p>
             <p className="text-xs text-[var(--muted-foreground)] mt-1">
               totalAssets + deployed in yield vaults
             </p>
@@ -65,9 +172,9 @@ export default function StatsPage() {
             <Target className="h-4 w-4 text-[var(--muted-foreground)]" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{MOCK_EPOCH_STATE.epoch}</p>
+            <p className="text-2xl font-bold">{currentEpoch?.toString() ?? "-"}</p>
             <p className="text-xs text-[var(--muted-foreground)] mt-1">
-              Phase: {MOCK_EPOCH_STATE.phase}
+              Phase: {isVotingOpen ? "voting" : "post-voting"}
             </p>
           </CardContent>
         </Card>
@@ -79,7 +186,7 @@ export default function StatsPage() {
             <Users className="h-4 w-4 text-[var(--muted-foreground)]" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{MOCK_LEADERBOARD.length}</p>
+            <p className="text-2xl font-bold">{agentList?.length ?? 0}</p>
             <p className="text-xs text-[var(--muted-foreground)] mt-1">
               registered agents
             </p>
@@ -93,11 +200,9 @@ export default function StatsPage() {
             <Award className="h-4 w-4 text-[var(--muted-foreground)]" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              +{MOCK_PROPOSALS[0].votesFor - MOCK_PROPOSALS[0].votesAgainst}
-            </p>
+            <p className="text-2xl font-bold">{winningNet >= 0 ? "+" : ""}{winningNet}</p>
             <p className="text-xs text-[var(--muted-foreground)] mt-1">
-              proposal #0
+              current epoch winner net
             </p>
           </CardContent>
         </Card>
@@ -195,7 +300,7 @@ export default function StatsPage() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
-              <RechartsBarChart data={MOCK_AGENT_SCORE_HISTORY}>
+              <RechartsBarChart data={leaderboardSeries}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
                   dataKey="agent"
@@ -233,12 +338,7 @@ export default function StatsPage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
               <RechartsBarChart
-                data={MOCK_PROPOSALS.map((p) => ({
-                  name: `#${p.id}`,
-                  for: p.votesFor,
-                  against: p.votesAgainst,
-                  target: p.target,
-                }))}
+                data={proposalsSeries}
                 layout="vertical"
                 margin={{ left: 60 }}
               >

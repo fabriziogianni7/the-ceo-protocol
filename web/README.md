@@ -61,6 +61,7 @@ Toggle theme via the header button.
 | `/humans` | Deposit USDC, withdraw, view vault stats |
 | `/agents` | Register agent, submit proposals, vote, execute, withdraw fees |
 | `/stats` | Statistics, graphs and charts: vault value, composition, epoch revenue, leaderboard |
+| `/devtools` | Advanced CEOVault function runner for full contract surface |
 | `/discuss` | Reddit-style discussion: proposal debate, market intel, execution log, settlement & rewards |
 
 ## Components
