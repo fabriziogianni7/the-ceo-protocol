@@ -5,11 +5,7 @@ import { useReadContract, useReadContracts } from "wagmi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { VaultValueChart } from "@/components/charts/vault-value-chart";
 import { VaultCompositionChart } from "@/components/charts/vault-composition-chart";
-import {
-  MOCK_VAULT_HISTORY,
-  MOCK_EPOCH_REVENUE,
-  MOCK_AGENT_SCORE_HISTORY,
-} from "@/lib/mock-data";
+import { MOCK_AGENT_SCORE_HISTORY } from "@/lib/mock-data";
 import {
   BarChart as RechartsBarChart,
   Bar,
@@ -65,6 +61,45 @@ export default function StatsPage() {
     args: [currentEpoch ?? BigInt(1)],
     query: { enabled: Boolean(currentEpoch) },
   });
+  const historicalEpochs = useMemo(() => {
+    const current = Number(currentEpoch ?? BigInt(0));
+    if (current <= 0) return [];
+    const start = Math.max(1, current - 7);
+    return Array.from(
+      { length: current - start + 1 },
+      (_, idx) => BigInt(start + idx)
+    );
+  }, [currentEpoch]);
+
+  const historicalContracts = useMemo(
+    () =>
+      historicalEpochs.flatMap((epoch) => [
+        {
+          address: contractAddresses.ceoVault,
+          abi: ceoVaultAbi,
+          functionName: "s_epochStartAssets" as const,
+          args: [epoch],
+        },
+        {
+          address: contractAddresses.ceoVault,
+          abi: ceoVaultAbi,
+          functionName: "s_epochDeposits" as const,
+          args: [epoch],
+        },
+        {
+          address: contractAddresses.ceoVault,
+          abi: ceoVaultAbi,
+          functionName: "s_epochWithdrawals" as const,
+          args: [epoch],
+        },
+      ]),
+    [historicalEpochs]
+  );
+
+  const historicalReads = useReadContracts({
+    contracts: historicalContracts,
+    query: { enabled: historicalContracts.length > 0 },
+  });
 
   const proposalContracts = useMemo(
     () =>
@@ -96,6 +131,64 @@ export default function StatsPage() {
         .filter(Boolean) as { id: number; votesFor: number; votesAgainst: number }[],
     [proposalsRead.data]
   );
+
+  const epochRows = useMemo(() => {
+    if (!historicalReads.data || historicalEpochs.length === 0) return [];
+    const rows: {
+      epoch: number;
+      startAssets: number;
+      deposits: number;
+      withdrawals: number;
+    }[] = [];
+    for (let i = 0; i < historicalEpochs.length; i += 1) {
+      const base = i * 3;
+      const startAssets = historicalReads.data[base];
+      const deposits = historicalReads.data[base + 1];
+      const withdrawals = historicalReads.data[base + 2];
+      if (
+        startAssets?.status !== "success" ||
+        deposits?.status !== "success" ||
+        withdrawals?.status !== "success"
+      ) {
+        continue;
+      }
+      rows.push({
+        epoch: Number(historicalEpochs[i]),
+        startAssets: Number(startAssets.result) / 1e6,
+        deposits: Number(deposits.result) / 1e6,
+        withdrawals: Number(withdrawals.result) / 1e6,
+      });
+    }
+    return rows;
+  }, [historicalReads.data, historicalEpochs]);
+
+  const vaultValueSeries = useMemo(() => {
+    const fromHistory = epochRows.map((row) => ({ epoch: row.epoch, value: row.startAssets }));
+    if (fromHistory.length > 0) return fromHistory;
+    const currentVal = Number(totalAssets ?? BigInt(0)) / 1e6;
+    const epoch = Number(currentEpoch ?? BigInt(1));
+    if (currentVal > 0 || epoch > 0) {
+      return [{ epoch: epoch || 1, value: currentVal }];
+    }
+    return [];
+  }, [epochRows, totalAssets, currentEpoch]);
+
+  const epochRevenueSeries = useMemo(() => {
+    if (epochRows.length < 2) return [];
+    return epochRows.slice(1).map((current, idx) => {
+      const previous = epochRows[idx];
+      const revenue =
+        current.startAssets -
+        previous.startAssets -
+        previous.deposits +
+        previous.withdrawals;
+      return {
+        epoch: previous.epoch,
+        revenue: Number(revenue.toFixed(4)),
+        profitable: revenue >= 0,
+      };
+    });
+  }, [epochRows]);
 
   const winningNet =
     proposals.length === 0
@@ -144,7 +237,7 @@ export default function StatsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Performance</h1>
         <p className="text-[var(--muted-foreground)] max-w-2xl mt-2">
           Vault performance, agent leaderboard, epoch revenue, and proposal
-          metrics. All data sourced from on-chain state (mock for demo).
+          metrics. All charts below are sourced from live on-chain values.
         </p>
       </section>
 
@@ -222,7 +315,71 @@ export default function StatsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <VaultValueChart />
+            <VaultValueChart data={vaultValueSeries} />
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Asset Flows Over Time — right below Vault Value */}
+      <section>
+        <Card>
+          <CardHeader>
+            <CardTitle>Asset Flows Over Time</CardTitle>
+            <CardDescription>
+              Epoch-level deposits and withdrawals from on-chain vault accounting.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={260}>
+              <RechartsLineChart data={epochRows}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="epoch"
+                  stroke="var(--muted-foreground)"
+                  fontSize={11}
+                  tickFormatter={(v) => `E${v}`}
+                />
+                <YAxis
+                  stroke="var(--muted-foreground)"
+                  fontSize={11}
+                  tickFormatter={(v) => `${v} USDC`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                  }}
+                  labelStyle={{ color: "var(--foreground)" }}
+                  formatter={(value: number, name: string) => [
+                    `${value} USDC`,
+                    name === "deposits"
+                      ? "Deposits"
+                      : name === "withdrawals"
+                        ? "Withdrawals"
+                        : name,
+                  ]}
+                  labelFormatter={(label) => `Epoch ${label}`}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="deposits"
+                  stroke="var(--primary)"
+                  strokeWidth={2}
+                  dot={{ fill: "var(--primary)" }}
+                  name="Deposits"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="withdrawals"
+                  stroke="var(--accent)"
+                  strokeWidth={2}
+                  dot={{ fill: "var(--accent)" }}
+                  name="Withdrawals"
+                />
+              </RechartsLineChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </section>
@@ -250,7 +407,7 @@ export default function StatsPage() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
-              <RechartsBarChart data={MOCK_EPOCH_REVENUE}>
+              <RechartsBarChart data={epochRevenueSeries}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
                   dataKey="epoch"
@@ -376,68 +533,6 @@ export default function StatsPage() {
         </Card>
       </section>
 
-      {/* MON vs USDC over time */}
-      <section>
-        <Card>
-          <CardHeader>
-            <CardTitle>Asset Breakdown Over Time</CardTitle>
-            <CardDescription>
-              MON and USDC allocation over the vault history.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <RechartsLineChart data={MOCK_VAULT_HISTORY}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis
-                  dataKey="date"
-                  stroke="var(--muted-foreground)"
-                  fontSize={11}
-                  tickFormatter={(v) => {
-                    const d = new Date(v);
-                    return `${d.getMonth() + 1}/${d.getDate()}`;
-                  }}
-                />
-                <YAxis
-                  stroke="var(--muted-foreground)"
-                  fontSize={11}
-                  tickFormatter={(v) => `${v}`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius)",
-                  }}
-                  labelStyle={{ color: "var(--foreground)" }}
-                  formatter={(value: number, name: string) => [
-                    `${value} USDC`,
-                    name === "mon" ? "MON" : name === "usdc" ? "USDC" : name,
-                  ]}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="mon"
-                  stroke="var(--primary)"
-                  strokeWidth={2}
-                  dot={{ fill: "var(--primary)" }}
-                  name="MON"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="usdc"
-                  stroke="var(--accent)"
-                  strokeWidth={2}
-                  dot={{ fill: "var(--accent)" }}
-                  name="USDC"
-                />
-              </RechartsLineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </section>
     </main>
   );
 }

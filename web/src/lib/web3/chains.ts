@@ -2,7 +2,7 @@
 
 import { defineChain } from "viem";
 
-const fallbackRpcUrl = "https://rpc.monad.xyz";
+const fallbackRpcUrl = "https://monad-mainnet.drpc.org";
 const fallbackExplorerUrl = "https://monadexplorer.com";
 
 export const monadMainnet = defineChain({

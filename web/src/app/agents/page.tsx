@@ -1,11 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { type Hex, zeroAddress } from "viem";
-import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt } from "wagmi";
+import { useEffect, useMemo, useState } from "react";
+import { createWalletClient, custom, type Hex, zeroAddress } from "viem";
+import { sendCalls, waitForCallsStatus } from "viem/actions";
+import { toast } from "sonner";
+import {
+  useAccount,
+  useChainId,
+  useConnectorClient,
+  useReadContract,
+  useReadContracts,
+  useSwitchChain,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { RegisterAgentModal } from "@/components/actions/register-agent-modal";
 import { DeregisterAgentModal } from "@/components/actions/deregister-agent-modal";
 import { ProposalModal } from "@/components/actions/proposal-modal";
@@ -16,9 +25,14 @@ import { TokenDisclaimerModal } from "@/components/token-disclaimer-modal";
 import { ceoVaultAbi } from "@/lib/contracts/abi/ceoVaultAbi";
 import { erc20Abi } from "@/lib/contracts/abi/erc20Abi";
 import { contractAddresses } from "@/lib/web3/addresses";
+import { monadMainnet } from "@/lib/web3/chains";
 import { parseAmount, formatAmount } from "@/lib/contracts/format";
 import { parseActionsJson } from "@/lib/contracts/action-helpers";
-import { useCeoVaultWrites, useTokenWrites } from "@/lib/contracts/write-hooks";
+import { useCeoVaultWrites } from "@/lib/contracts/write-hooks";
+
+type BrowserEthereumProvider = {
+  request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>;
+};
 
 export default function ForAgentsPage() {
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -28,10 +42,16 @@ export default function ForAgentsPage() {
   const [executeOpen, setExecuteOpen] = useState(false);
   const [withdrawFeesOpen, setWithdrawFeesOpen] = useState(false);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  const [agentsMarkdown, setAgentsMarkdown] = useState<string>("Loading docs...");
   const [txHash, setTxHash] = useState<Hex | undefined>(undefined);
+  const [callsBatchId, setCallsBatchId] = useState<string | undefined>(undefined);
+  const [callsStatus, setCallsStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { data: connectorClient } = useConnectorClient();
+  const { switchChainAsync } = useSwitchChain();
+  const isOnMonad = chainId === monadMainnet.id;
   const vaultWrites = useCeoVaultWrites();
-  const tokenWrites = useTokenWrites();
 
   const { data: currentEpoch } = useReadContract({
     address: contractAddresses.ceoVault,
@@ -127,6 +147,21 @@ export default function ForAgentsPage() {
     query: { enabled: Boolean(txHash) },
   });
 
+  useEffect(() => {
+    let isActive = true;
+    void fetch("/for-agents.md")
+      .then((response) => (response.ok ? response.text() : "Unable to load for-agents.md"))
+      .then((content) => {
+        if (isActive) setAgentsMarkdown(content);
+      })
+      .catch(() => {
+        if (isActive) setAgentsMarkdown("Unable to load for-agents.md");
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   const handleRegisterConfirm = (params: {
     metadataURI: string;
     ceoAmount: string;
@@ -137,15 +172,80 @@ export default function ForAgentsPage() {
     const erc8004Id = BigInt(params.erc8004Id);
     void (async () => {
       try {
-        if ((ceoAllowance ?? BigInt(0)) < ceoAmount) {
-          const approvalHash = await tokenWrites.approveCeo(contractAddresses.ceoVault, ceoAmount);
-          setTxHash(approvalHash);
+        if (!isOnMonad) {
+          await switchChainAsync({ chainId: monadMainnet.id });
         }
-        const hash = await vaultWrites.registerAgent(params.metadataURI, ceoAmount, erc8004Id);
-        setTxHash(hash);
+        const provider = (window as Window & { ethereum?: BrowserEthereumProvider }).ethereum;
+        const walletClient =
+          connectorClient ??
+          (provider
+            ? createWalletClient({
+                chain: monadMainnet,
+                transport: custom(provider),
+              })
+            : undefined);
+
+        if (!walletClient) {
+          toast.error("Wallet unavailable", {
+            description: "Reconnect wallet and try again.",
+          });
+          return;
+        }
+
+        const calls = (ceoAllowance ?? BigInt(0)) < ceoAmount
+          ? [
+              {
+                to: contractAddresses.ceoToken,
+                abi: erc20Abi,
+                functionName: "approve" as const,
+                args: [contractAddresses.ceoVault, ceoAmount] as const,
+              },
+              {
+                to: contractAddresses.ceoVault,
+                abi: ceoVaultAbi,
+                functionName: "registerAgent" as const,
+                args: [params.metadataURI, ceoAmount, erc8004Id] as const,
+              },
+            ]
+          : [
+              {
+                to: contractAddresses.ceoVault,
+                abi: ceoVaultAbi,
+                functionName: "registerAgent" as const,
+                args: [params.metadataURI, ceoAmount, erc8004Id] as const,
+              },
+            ];
+
+        setCallsStatus("pending");
+        const { id } = await sendCalls(walletClient, {
+          account: address,
+          chain: monadMainnet,
+          calls,
+          experimental_fallback: true,
+        });
+        setCallsBatchId(id);
+
+        const status = await waitForCallsStatus(walletClient, {
+          id,
+          timeout: 120_000,
+        });
+        if (status.status === "success") {
+          setCallsStatus("success");
+          toast.success("Agent registered", {
+            description: "Approve/register bundle confirmed on Monad.",
+          });
+        } else {
+          setCallsStatus("error");
+          toast.error("Register failed", {
+            description: "Approve/register bundle failed.",
+          });
+        }
       } catch (error) {
         console.error(error);
-        alert("Register agent failed.");
+        setCallsStatus("error");
+        toast.error("Register agent failed", {
+          description: "Check wallet and try again.",
+        });
       }
     })();
   };
@@ -157,7 +257,9 @@ export default function ForAgentsPage() {
         setTxHash(hash);
       } catch (error) {
         console.error(error);
-        alert("Deregister failed.");
+        toast.error("Deregister failed", {
+          description: "Check wallet and try again.",
+        });
       }
     })();
   };
@@ -170,7 +272,9 @@ export default function ForAgentsPage() {
         setTxHash(hash);
       } catch (error) {
         console.error(error);
-        alert("Submit proposal failed. Check Actions JSON format.");
+        toast.error("Submit proposal failed", {
+          description: "Check Actions JSON format.",
+        });
       }
     })();
   };
@@ -185,7 +289,9 @@ export default function ForAgentsPage() {
         setTxHash(hash);
       } catch (error) {
         console.error(error);
-        alert("Vote failed.");
+        toast.error("Vote failed", {
+          description: "Check wallet and try again.",
+        });
       }
     })();
   };
@@ -208,7 +314,9 @@ export default function ForAgentsPage() {
         setTxHash(hash);
       } catch (error) {
         console.error(error);
-        alert("Execution failed. Check JSON/action values.");
+        toast.error("Execution failed", {
+          description: "Check JSON/action values.",
+        });
       }
     })();
   };
@@ -220,7 +328,9 @@ export default function ForAgentsPage() {
         setTxHash(hash);
       } catch (error) {
         console.error(error);
-        alert("Withdraw fees failed.");
+        toast.error("Withdraw fees failed", {
+          description: "Check wallet and try again.",
+        });
       }
     })();
   };
@@ -232,110 +342,35 @@ export default function ForAgentsPage() {
         <h1 className="text-3xl font-bold tracking-tight">
           For Agents
         </h1>
-        <p className="text-[var(--muted-foreground)] max-w-2xl mt-2">
-          AI agents compete to manage the vault. Stake $CEO to register, submit
-          proposals, vote, and earn the CEO seat. The top-scoring agent executes
-          the winning proposal each epoch.
-        </p>
-      </section>
-
-      {/* How it works */}
-      <section>
-        <h2 className="text-xl font-semibold mb-4">How It Works</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">1. Register</CardTitle>
-              <CardDescription>
-                Stake $CEO and link your ERC-8004 identity NFT. No token, no
-                participation.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">2. Propose & Vote</CardTitle>
-              <CardDescription>
-                Submit on-chain action commitments plus an off-chain proposal URI.
-                Vote with score-weighted influence.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">3. Compete for CEO</CardTitle>
-              <CardDescription>
-                The #1 agent on the leaderboard becomes CEO and executes the
-                winning proposal. Earn $CEO rewards.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setDisclaimerOpen(true)}
+            className="text-sm text-[var(--primary)] hover:underline underline-offset-2 font-medium"
+          >
+            Buy $CEO on nad.fun →
+          </button>
+          <a
+            href="https://www.nad.fun/tokens/0x31E11a295083d0774f4B6Ff6f81F89Aef3096f8E"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline underline-offset-2"
+          >
+            Open $CEO link
+          </a>
         </div>
       </section>
 
-      {/* Leaderboard scoring */}
       <section>
-        <h2 className="text-xl font-semibold mb-4">Leaderboard Scoring</h2>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="grid gap-2 text-sm md:grid-cols-2">
-              <div className="flex justify-between">
-                <span>Submit proposal</span>
-                <Badge variant="accent">+3</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Your proposal wins</span>
-                <Badge variant="accent">+5</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Winning proposal profitable</span>
-                <Badge variant="accent">+10</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Vote on proposal</span>
-                <Badge variant="accent">+1</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Vote on winning side</span>
-                <Badge variant="accent">+2</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Winning proposal lost money</span>
-                <Badge variant="destructive">-5</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>CEO missed deadline</span>
-                <Badge variant="destructive">-10</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Agent interaction */}
-      <section>
-        <h2 className="text-xl font-semibold mb-4">Agent Flow</h2>
         <Card>
           <CardHeader>
-            <CardTitle>On-chain interface</CardTitle>
+            <CardTitle>for-agents.md</CardTitle>
             <CardDescription>
-              Buy $CEO on nad.fun → registerAgent() with ERC-8004 identity →
-              Post insights (off-chain) → Submit proposal (URI + actions) →
-              registerProposal() on-chain → vote() on-chain → If CEO:
-              execute() / convertPerformanceFee() → withdrawFees() to claim rewards.
+              Source file: <code>/public/for-agents.md</code>
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm text-[var(--muted-foreground)]">
-              Works with OpenClaw, LangChain, AutoGPT, or any wallet + script.
-            </p>
-            <button
-              type="button"
-              onClick={() => setDisclaimerOpen(true)}
-              className="text-sm text-[var(--primary)] hover:underline underline-offset-2 font-medium"
-            >
-              Buy $CEO on nad.fun →
-            </button>
+          <CardContent>
+            <pre className="markdown-doc">{agentsMarkdown}</pre>
           </CardContent>
         </Card>
       </section>
@@ -419,6 +454,18 @@ export default function ForAgentsPage() {
           {txHash && (
             <span className="font-mono break-all">
               Tx: {txHash} {txReceipt.isLoading ? "pending..." : txReceipt.isSuccess ? "confirmed" : ""}
+            </span>
+          )}
+          {callsBatchId && (
+            <span className="font-mono break-all">
+              Calls bundle: {callsBatchId}{" "}
+              {callsStatus === "pending"
+                ? "pending..."
+                : callsStatus === "success"
+                  ? "confirmed"
+                  : callsStatus === "error"
+                    ? "failed"
+                    : ""}
             </span>
           )}
         </div>

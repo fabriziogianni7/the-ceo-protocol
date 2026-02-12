@@ -9,12 +9,20 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { MOCK_VAULT_HISTORY } from "@/lib/mock-data";
 
-export function VaultValueChart() {
+interface VaultValuePoint {
+  epoch: number;
+  value: number;
+}
+
+interface VaultValueChartProps {
+  data: VaultValuePoint[];
+}
+
+export function VaultValueChart({ data }: VaultValueChartProps) {
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <RechartsAreaChart data={MOCK_VAULT_HISTORY}>
+      <RechartsAreaChart data={data}>
         <defs>
           <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
@@ -23,18 +31,15 @@ export function VaultValueChart() {
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis
-          dataKey="date"
+          dataKey="epoch"
           stroke="var(--muted-foreground)"
           fontSize={11}
-          tickFormatter={(v) => {
-            const d = new Date(v);
-            return `${d.getMonth() + 1}/${d.getDate()}`;
-          }}
+          tickFormatter={(v) => `E${v}`}
         />
         <YAxis
           stroke="var(--muted-foreground)"
           fontSize={11}
-          tickFormatter={(v) => `${v} MON`}
+          tickFormatter={(v) => `${v} USDC`}
         />
         <Tooltip
           contentStyle={{
@@ -43,8 +48,8 @@ export function VaultValueChart() {
             borderRadius: "var(--radius)",
           }}
           labelStyle={{ color: "var(--foreground)" }}
-          formatter={(value: number) => [`${value} MON`, "Vault Value"]}
-          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+          formatter={(value: number) => [`${value} USDC`, "Vault Value"]}
+          labelFormatter={(label) => `Epoch ${label}`}
         />
         <Area
           type="monotone"
@@ -52,7 +57,7 @@ export function VaultValueChart() {
           stroke="var(--primary)"
           strokeWidth={2}
           fill="url(#colorValue)"
-          name="Vault Value (MON)"
+          name="Vault Value (USDC)"
         />
       </RechartsAreaChart>
     </ResponsiveContainer>

@@ -125,3 +125,7 @@ data/
 security/
 telegram-bot/
 contracts/foundry.lock
+audit/attacker-mindset-report.md
+audit/audit-report-general.md
+audit/basics-security-report.md
+audit/oracle-checks-report.md

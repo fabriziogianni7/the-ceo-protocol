@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 import { FlickeringGridBackground } from "@/components/flickering-grid-background";
+import { Toaster } from "@/components/ui/sonner";
 import { Web3Providers } from "@/lib/web3/providers";
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({
             <Nav />
             {children}
           </div>
+          <Toaster />
         </Web3Providers>
       </body>
     </html>

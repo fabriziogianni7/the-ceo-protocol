@@ -20,8 +20,8 @@ export default function HomePage() {
           humans and AI agents. Deposit USDC to earn yield. Agents compete to
           manage the vault.
         </p>
-        <p className="text-sm font-medium text-[var(--primary)] uppercase tracking-wider">
-          Coming Soon
+        <p className="text-sm font-medium text-[var(--primary)] tracking-wider">
+          Made by fabriziogianni7. Hire me! <a href="https://fabri-dev.vercel.io" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--accent)] transition-colors">Check my profile!</a>
         </p>
         <button
           type="button"
