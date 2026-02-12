@@ -7,10 +7,12 @@ import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.so
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {ERC4626Fees} from "./ERC4626Fees.sol";
 import {ICEOVault} from "./ICEOVault.sol";
+import {AgentRankingLib} from "./libraries/AgentRankingLib.sol";
 import {IERC8004Identity} from "./erc8004/IERC8004Identity.sol";
 import {IERC8004Reputation} from "./erc8004/IERC8004Reputation.sol";
 import {IERC8004Validation} from "./erc8004/IERC8004Validation.sol";
@@ -22,7 +24,7 @@ import {IERC8004Validation} from "./erc8004/IERC8004Validation.sol";
 ///         yield vault deployments. Revenue is shared between depositors (via
 ///         share price appreciation) and agents (via performance fees converted
 ///         to $CEO). Entry fees go to a configurable treasury.
-contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
+contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -58,6 +60,8 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
     uint256 public s_minCeoStake;
     uint256 public s_vaultCap;
     uint256 public s_maxDepositPerAddress;
+    uint256 public s_minDeposit; // min assets per deposit/mint (0 = no minimum)
+    uint256 public s_minWithdraw; // min assets per withdraw/redeem (0 = no minimum)
     uint256 public s_epochDuration;
     uint256 public s_ceoGracePeriod;
     uint256 public s_maxAgents;
@@ -220,6 +224,8 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
 
     /// @dev Track net deposits per epoch (assets minus entry fee), then call ERC4626Fees._deposit
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual override {
+        if (s_minDeposit > 0 && assets < s_minDeposit) revert BelowMinDeposit();
+
         // Compute fee the same way ERC4626Fees does
         uint256 feeBps = _entryFeeBasisPoints();
         uint256 fee = feeBps > 0 ? _feeOnTotal(assets, feeBps) : 0;
@@ -236,6 +242,8 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
         uint256 assets,
         uint256 shares
     ) internal virtual override {
+        if (s_minWithdraw > 0 && assets < s_minWithdraw) revert BelowMinWithdraw();
+
         s_epochWithdrawals[s_currentEpoch] += assets;
 
         super._withdraw(caller, receiver, owner_, assets, shares);
@@ -325,28 +333,60 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
         emit WhitelistedTargetSet(target, allowed);
     }
 
+
+    // ══════════════════════════════════════════════════════════════
+    //                        PAUSABLE
+    // ══════════════════════════════════════════════════════════════
+
+    /// @notice Pause critical autonomous protocol actions for incident containment
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause critical autonomous protocol actions after incident resolution
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /// @notice Recover accidentally sent native MON to a specified address
+    /// @dev Owner-only. Use for stranded native funds (e.g. misdirected swaps).
+    /// @param to Recipient address
+    /// @param amount Amount to recover (wei)
+    function recoverNative(address to, uint256 amount) external onlyOwner nonReentrant {
+        if (to == address(0)) revert ZeroAddress();
+        if (amount == 0) return;
+        if (address(this).balance < amount) revert NativeTransferFailed();
+
+        (bool ok,) = to.call{value: amount}("");
+        if (!ok) revert NativeTransferFailed();
+
+        emit NativeRecovered(to, amount);
+    }
+
     // ══════════════════════════════════════════════════════════════
     //                       EXECUTION
     // ══════════════════════════════════════════════════════════════
 
     /// @notice Execute the winning proposal's strategy via a sequence of actions
     /// @dev CEO (rank #1) can execute immediately after voting. Rank #2 can execute
-    ///      after the grace period. Two-phase: all actions validated before any execution.
+    ///      after the grace period. If no rank #2 exists, execution becomes
+    ///      permissionless after the CEO grace period. Two-phase: all actions
+    ///      validated before any execution.
     ///      Post-execution drawdown invariant prevents catastrophic vault drain.
     /// @param proposalId The index of the winning proposal for the current epoch
     /// @param actions Array of Action structs to execute
-    function execute(uint256 proposalId, Action[] calldata actions) external afterVoting nonReentrant {
+    function execute(uint256 proposalId, Action[] calldata actions) external whenNotPaused afterVoting nonReentrant {
         if (s_epochExecuted) revert AlreadyExecuted();
         if (actions.length == 0 || actions.length > s_maxActions) revert TooManyActions();
 
-        // Access control: CEO or #2 after grace
+        // Access control: CEO or #2 after grace; permissionless if no #2
         address ceo = getTopAgent();
         if (msg.sender != ceo) {
             if (block.timestamp < s_epochStartTime + s_epochDuration + s_ceoGracePeriod) {
                 revert GracePeriodOnlyCeo();
             }
             address second = getSecondAgent();
-            if (msg.sender != second) revert OnlyCeoOrSecond();
+            if (second != address(0) && msg.sender != second) revert OnlyCeoOrSecond();
             // Penalize CEO for missing execution window
             if (ceo != address(0)) {
                 s_agents[ceo].score += SCORE_CEO_MISSED;
@@ -384,6 +424,9 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
             if (!ok) revert ActionFailed();
         }
 
+        // Revoke token approvals set during execution to avoid persistent allowances
+        _revokeTokenApprovals(actions);
+
         // POST-EXECUTION: Drawdown invariant — vault value must not drop beyond limit
         if (s_maxDrawdownBps > 0 && totalBefore > 0) {
             uint256 totalAfter = totalAssets();
@@ -400,7 +443,7 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
     ///      idle USDC is consumed than the pending performance fee amount.
     /// @param actions Swap actions to convert USDC → $CEO
     /// @param minCeoOut Minimum $CEO expected (slippage protection)
-    function convertPerformanceFee(Action[] calldata actions, uint256 minCeoOut) external nonReentrant {
+    function convertPerformanceFee(Action[] calldata actions, uint256 minCeoOut) external whenNotPaused nonReentrant {
         if (s_pendingPerformanceFeeUsdc == 0) revert NoPerformanceFeeToConvert();
         if (actions.length == 0 || actions.length > s_maxActions) revert TooManyActions();
 
@@ -430,6 +473,9 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
             (bool ok,) = actions[i].target.call(actions[i].data);
             if (!ok) revert ActionFailed();
         }
+
+        // Revoke token approvals set during execution to avoid persistent allowances
+        _revokeTokenApprovals(actions);
 
         // SPENDING CAP: vault must not have lost more idle USDC than the fee
         uint256 usdcAfter = IERC20(asset()).balanceOf(address(this));
@@ -528,6 +574,7 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
     /// @param proposalURI Off-chain URI with proposal details
     function registerProposal(Action[] calldata actions, string calldata proposalURI)
         external
+        whenNotPaused
         onlyActiveAgent
         duringVoting
         nonReentrant
@@ -568,7 +615,7 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
     /// @dev Weight is based on agent's absolute score (min 1)
     /// @param proposalId Index of the proposal in the current epoch
     /// @param support True = for, false = against
-    function vote(uint256 proposalId, bool support) external onlyActiveAgent duringVoting {
+    function vote(uint256 proposalId, bool support) external whenNotPaused onlyActiveAgent duringVoting {
         uint256 epoch = s_currentEpoch;
         if (proposalId >= s_epochProposals[epoch].length) revert InvalidProposal();
         if (s_hasVoted[epoch][proposalId][msg.sender]) revert AlreadyVoted();
@@ -598,7 +645,7 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
     /// @notice Settle the current epoch: measure performance, distribute fees, advance epoch
     /// @dev Can be called by anyone after the grace period. Measures vault profit,
     ///      accrues performance fee, updates agent scores, and starts the next epoch.
-    function settleEpoch() external afterVoting nonReentrant {
+    function settleEpoch() external whenNotPaused afterVoting nonReentrant {
         uint256 epoch = s_currentEpoch;
         uint256 graceEnd = s_epochStartTime + s_epochDuration + s_ceoGracePeriod;
         if (block.timestamp < graceEnd) revert TooEarlyToSettle();
@@ -737,6 +784,18 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
         s_maxDepositPerAddress = cap;
     }
 
+    /// @notice Set minimum deposit/mint amount in asset decimals (0 = no minimum)
+    function setMinDeposit(uint256 amount) external onlyOwner {
+        s_minDeposit = amount;
+        emit MinDepositSet(amount);
+    }
+
+    /// @notice Set minimum withdraw/redeem amount in asset decimals (0 = no minimum)
+    function setMinWithdraw(uint256 amount) external onlyOwner {
+        s_minWithdraw = amount;
+        emit MinWithdrawSet(amount);
+    }
+
     /// @notice Set epoch duration (seconds)
     function setEpochDuration(uint256 duration) external onlyOwner {
         s_epochDuration = duration;
@@ -786,44 +845,14 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
     /// @notice Get the current CEO (top-scoring active agent)
     /// @return Top agent address (address(0) if none)
     function getTopAgent() public view returns (address) {
-        address topAddr;
-        int256 topScore = type(int256).min;
-
-        uint256 len = s_agentList.length;
-        for (uint256 i = 0; i < len; i++) {
-            address a = s_agentList[i];
-            if (s_agents[a].active && s_agents[a].score > topScore) {
-                topScore = s_agents[a].score;
-                topAddr = a;
-            }
-        }
+        (address topAddr,) = AgentRankingLib.getTopTwoAgents(s_agentList, s_agents);
         return topAddr;
     }
 
     /// @notice Get the second-place agent (fallback executor)
     /// @return Second agent address (address(0) if none)
     function getSecondAgent() public view returns (address) {
-        address topAddr;
-        address secondAddr;
-        int256 topScore = type(int256).min;
-        int256 secondScore = type(int256).min;
-
-        uint256 len = s_agentList.length;
-        for (uint256 i = 0; i < len; i++) {
-            address a = s_agentList[i];
-            if (!s_agents[a].active) continue;
-            int256 sc = s_agents[a].score;
-
-            if (sc > topScore) {
-                secondAddr = topAddr;
-                secondScore = topScore;
-                topAddr = a;
-                topScore = sc;
-            } else if (sc > secondScore) {
-                secondAddr = a;
-                secondScore = sc;
-            }
-        }
+        (, address secondAddr) = AgentRankingLib.getTopTwoAgents(s_agentList, s_agents);
         return secondAddr;
     }
 
@@ -850,40 +879,7 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
     /// @return agents Sorted array of agent addresses (descending by score)
     /// @return scores Corresponding scores
     function getLeaderboard() external view returns (address[] memory agents, int256[] memory scores) {
-        uint256 len = s_agentList.length;
-        agents = new address[](len);
-        scores = new int256[](len);
-
-        // Copy active agents
-        uint256 count;
-        for (uint256 i = 0; i < len; i++) {
-            address a = s_agentList[i];
-            if (s_agents[a].active) {
-                agents[count] = a;
-                scores[count] = s_agents[a].score;
-                count++;
-            }
-        }
-
-        // Trim arrays
-        assembly {
-            mstore(agents, count)
-            mstore(scores, count)
-        }
-
-        // Simple insertion sort (fine for ≤ 1000 agents in view function)
-        for (uint256 i = 1; i < count; i++) {
-            int256 key = scores[i];
-            address keyAddr = agents[i];
-            uint256 j = i;
-            while (j > 0 && scores[j - 1] < key) {
-                scores[j] = scores[j - 1];
-                agents[j] = agents[j - 1];
-                j--;
-            }
-            scores[j] = key;
-            agents[j] = keyAddr;
-        }
+        return AgentRankingLib.getLeaderboard(s_agentList, s_agents);
     }
 
     /// @notice Get the number of proposals in an epoch
@@ -949,7 +945,8 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
         bytes32 requestHash
     ) external onlyActiveAgent {
         if (address(s_erc8004Validation) == address(0)) revert ValidationRegistryNotConfigured();
-        if (!s_epochProposals[epoch][0].executed && s_epochProposals[epoch].length > 0) {
+        if (s_epochProposals[epoch].length == 0) revert NoProposals();
+        if (!s_epochProposals[epoch][0].executed) {
             // Check that at least one proposal was executed
             bool anyExecuted;
             uint256 len = s_epochProposals[epoch].length;
@@ -1073,6 +1070,21 @@ contract CEOVault is ICEOVault, ERC4626Fees, ReentrancyGuard {
 
         // ── Rule 4: Other whitelisted targets (adapters) — allowed ──
         return s_isWhitelistedTarget[target];
+    }
+
+    /// @dev Revoke approvals created by token approve() actions in this execution batch.
+    function _revokeTokenApprovals(Action[] calldata actions) internal {
+        for (uint256 i = 0; i < actions.length; i++) {
+            Action calldata action = actions[i];
+            if (action.target != asset() && action.target != address(i_ceoToken)) continue;
+
+            bytes calldata data = action.data;
+            if (data.length < 68) continue;
+            if (bytes4(data[:4]) != IERC20.approve.selector) continue;
+
+            address spender = abi.decode(data[4:68], (address));
+            IERC20(action.target).forceApprove(spender, 0);
+        }
     }
 
     /// @dev Distribute $CEO fees to the top 10 agents (CEO: 30%, ranks 2-10: 70% split)

@@ -121,6 +121,12 @@ interface ICEOVault {
     /// @notice Thrown when deposit would exceed per-address cap
     error MaxDepositPerAddressExceeded();
 
+    /// @notice Thrown when deposit amount is below configured minimum
+    error BelowMinDeposit();
+
+    /// @notice Thrown when withdraw/redeem amount is below configured minimum
+    error BelowMinWithdraw();
+
     /// @notice Thrown when setting vault cap below current total assets
     error VaultCapBelowCurrent();
 
@@ -141,6 +147,9 @@ interface ICEOVault {
 
     /// @notice Thrown when requesting validation for an epoch with no execution
     error NoExecutionForEpoch();
+
+    /// @notice Thrown when native MON recovery transfer fails
+    error NativeTransferFailed();
 
     // ══════════════════════════════════════════════════════════════
     //                         STRUCTS
@@ -239,4 +248,13 @@ interface ICEOVault {
 
     /// @notice Emitted when max drawdown basis points is updated
     event MaxDrawdownBpsSet(uint256 bps);
+
+    /// @notice Emitted when minimum deposit threshold (asset decimals) is updated
+    event MinDepositSet(uint256 amount);
+
+    /// @notice Emitted when minimum withdraw threshold (asset decimals) is updated
+    event MinWithdrawSet(uint256 amount);
+
+    /// @notice Emitted when owner recovers accidentally sent native MON
+    event NativeRecovered(address indexed to, uint256 amount);
 }

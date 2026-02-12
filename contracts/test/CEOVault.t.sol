@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {CEOToken} from "../src/CEOToken.sol";
 import {CEOVault} from "../src/CEOVault.sol";
 import {ICEOVault} from "../src/ICEOVault.sol";
@@ -242,6 +243,63 @@ contract CEOVaultTest is Test {
         assertEq(vault.s_maxDepositPerAddress(), 0);
         vault.setMaxDepositPerAddress(100e6);
         assertEq(vault.s_maxDepositPerAddress(), 100e6);
+    }
+
+    function test_setMinDeposit() public {
+        assertEq(vault.s_minDeposit(), 0);
+        vault.setMinDeposit(100e6);
+        assertEq(vault.s_minDeposit(), 100e6);
+    }
+
+    function test_setMinWithdraw() public {
+        assertEq(vault.s_minWithdraw(), 0);
+        vault.setMinWithdraw(50e6);
+        assertEq(vault.s_minWithdraw(), 50e6);
+    }
+
+    function test_deposit_revert_belowMinDeposit() public {
+        vault.setMinDeposit(100e6);
+        vm.prank(depositor1);
+        vm.expectRevert(ICEOVault.BelowMinDeposit.selector);
+        vault.deposit(50e6, depositor1);
+    }
+
+    function test_deposit_succeeds_atMinDeposit() public {
+        vault.setMinDeposit(100e6);
+        vm.prank(depositor1);
+        uint256 shares = vault.deposit(100e6, depositor1);
+        assertGt(shares, 0);
+    }
+
+    function test_redeem_revert_belowMinWithdraw() public {
+        vm.prank(depositor1);
+        vault.deposit(1000e6, depositor1);
+        vault.setMinWithdraw(100e6);
+        uint256 shares = vault.balanceOf(depositor1);
+        // redeem 1/20 of shares → ~50e6 assets, below 100e6 min
+        vm.prank(depositor1);
+        vm.expectRevert(ICEOVault.BelowMinWithdraw.selector);
+        vault.redeem(shares / 20, depositor1, depositor1);
+    }
+
+    function test_withdraw_revert_belowMinWithdraw() public {
+        vm.prank(depositor1);
+        vault.deposit(1000e6, depositor1);
+        vault.setMinWithdraw(500e6);
+        vm.prank(depositor1);
+        vm.expectRevert(ICEOVault.BelowMinWithdraw.selector);
+        vault.withdraw(100e6, depositor1, depositor1);
+    }
+
+    function test_redeem_succeeds_atMinWithdraw() public {
+        vm.prank(depositor1);
+        vault.deposit(1000e6, depositor1);
+        vault.setMinWithdraw(500e6);
+        uint256 shares = vault.balanceOf(depositor1);
+        vm.prank(depositor1);
+        uint256 assets = vault.redeem(shares, depositor1, depositor1);
+        assertGt(assets, 0);
+        assertGe(assets, 500e6);
     }
 
     function test_deposit_entryFee_goes_to_treasury() public {
@@ -547,6 +605,87 @@ contract CEOVaultTest is Test {
         assertTrue(ceoScore < 0, "CEO should have negative score from penalty");
     }
 
+    function test_execute_revert_notCeo_beforeGrace_whenNoSecond() public {
+        // Register only one agent so getSecondAgent() returns address(0)
+        vm.prank(agent1);
+        vault.registerAgent("ipfs://agent1", MIN_CEO_STAKE, agent1Id);
+        assertEq(vault.getSecondAgent(), address(0), "No second agent expected");
+
+        ICEOVault.Action[] memory actions = _defaultActions();
+
+        vm.prank(depositor1);
+        vault.deposit(10_000e6, depositor1);
+        _submitProposal(agent1, actions);
+
+        vm.warp(block.timestamp + EPOCH_DURATION + 1);
+
+        // Non-CEO still blocked during grace period even without a second agent
+        vm.prank(depositor2);
+        vm.expectRevert(ICEOVault.GracePeriodOnlyCeo.selector);
+        vault.execute(0, actions);
+    }
+
+    function test_execute_permissionless_afterGrace_whenNoSecond() public {
+        // Register only one agent so getSecondAgent() returns address(0)
+        vm.prank(agent1);
+        vault.registerAgent("ipfs://agent1", MIN_CEO_STAKE, agent1Id);
+        address ceo = vault.getTopAgent();
+        assertEq(ceo, agent1, "Single agent should be CEO");
+        assertEq(vault.getSecondAgent(), address(0), "No second agent expected");
+
+        ICEOVault.Action[] memory actions = _defaultActions();
+
+        vm.prank(depositor1);
+        vault.deposit(10_000e6, depositor1);
+        _submitProposal(agent1, actions);
+
+        vm.warp(block.timestamp + EPOCH_DURATION + GRACE_PERIOD + 1);
+
+        // Permissionless execution opens after grace if no second agent exists
+        vm.prank(depositor2);
+        vault.execute(0, actions);
+
+        assertTrue(vault.s_epochExecuted(), "Execution should succeed permissionlessly");
+    }
+
+    function test_execute_revert_nonSecond_afterGrace_whenSecondExists() public {
+        _registerAllAgents();
+        ICEOVault.Action[] memory actions = _defaultActions();
+        _depositAndPropose(actions);
+
+        vm.warp(block.timestamp + EPOCH_DURATION + GRACE_PERIOD + 1);
+
+        address ceo = vault.getTopAgent();
+        address second = vault.getSecondAgent();
+        assertTrue(second != address(0), "Should have second agent");
+        assertTrue(second != ceo, "Second should differ from CEO");
+
+        // A caller that is neither CEO nor second is still blocked after grace
+        vm.prank(depositor1);
+        vm.expectRevert(ICEOVault.OnlyCeoOrSecond.selector);
+        vault.execute(0, actions);
+    }
+
+    function test_execute_revokesTokenApproveAllowanceAfterExecution() public {
+        _registerAllAgents();
+
+        ICEOVault.Action[] memory actions = new ICEOVault.Action[](1);
+        actions[0] = ICEOVault.Action({
+            target: address(usdc),
+            value: 0,
+            data: abi.encodeCall(usdc.approve, (address(yieldVault), 1_000e6))
+        });
+
+        _depositAndPropose(actions);
+        vm.warp(block.timestamp + EPOCH_DURATION + 1);
+
+        address ceo = vault.getTopAgent();
+        vm.prank(ceo);
+        vault.execute(0, actions);
+
+        assertEq(usdc.allowance(address(vault), address(yieldVault)), 0, "USDC allowance should be reset to zero");
+    }
+
     function test_registerProposal_revert_targetNotWhitelisted() public {
         _registerAllAgents();
         address random = makeAddr("random");
@@ -781,6 +920,54 @@ contract CEOVaultTest is Test {
         assertEq(totalClaimable, 100e18, "Total claimable should equal converted CEO");
     }
 
+    function test_convertPerformanceFee_revokesTokenApproveAllowanceAfterExecution() public {
+        // Setup: deposit, propose, execute, generate yield, settle
+        vm.prank(depositor1);
+        vault.deposit(10_000e6, depositor1);
+
+        _registerAllAgents();
+        ICEOVault.Action[] memory actions = _defaultActions();
+        _submitProposal(agent1, actions);
+        vm.prank(agent2);
+        vault.vote(0, true);
+        vm.prank(agent3);
+        vault.vote(0, true);
+
+        vm.warp(block.timestamp + EPOCH_DURATION + 1);
+
+        address ceo = vault.getTopAgent();
+        vm.prank(ceo);
+        vault.execute(0, actions);
+
+        usdc.mint(address(vault), 1000e6); // 1000 USDC profit
+
+        vm.warp(block.timestamp + GRACE_PERIOD + 1);
+        vault.settleEpoch();
+
+        uint256 pendingFee = vault.s_pendingPerformanceFeeUsdc();
+        assertGt(pendingFee, 0, "Should have pending performance fee");
+
+        vault.setWhitelistedTarget(address(mockDex), true);
+        ceoToken.transfer(address(mockDex), 10_000e18);
+
+        ICEOVault.Action[] memory convActions = new ICEOVault.Action[](2);
+        convActions[0] = ICEOVault.Action({
+            target: address(usdc),
+            value: 0,
+            data: abi.encodeCall(usdc.approve, (address(mockDex), pendingFee))
+        });
+        convActions[1] = ICEOVault.Action({
+            target: address(mockDex),
+            value: 0,
+            data: abi.encodeCall(mockDex.swapMonForCeo, (address(ceoToken), 100e18))
+        });
+
+        vm.prank(ceo);
+        vault.convertPerformanceFee(convActions, 100e18);
+
+        assertEq(usdc.allowance(address(vault), address(mockDex)), 0, "USDC allowance should be reset to zero");
+    }
+
     function test_convertPerformanceFee_revert_noPendingFee() public {
         _registerAllAgents();
 
@@ -865,6 +1052,119 @@ contract CEOVaultTest is Test {
 
         vault.setWhitelistedTarget(target, false);
         assertFalse(vault.s_isWhitelistedTarget(target));
+    }
+
+    function test_pause_unpause() public {
+        vault.pause();
+        assertTrue(vault.paused());
+
+        vault.unpause();
+        assertFalse(vault.paused());
+    }
+
+    function test_pause_revert_notOwner() public {
+        vm.prank(agent1);
+        vm.expectRevert(ICEOVault.NotOwner.selector);
+        vault.pause();
+    }
+
+    function test_pause_revert_alreadyPaused() public {
+        vault.pause();
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vault.pause();
+    }
+
+    function test_unpause_revert_alreadyUnpaused() public {
+        vm.expectRevert(Pausable.ExpectedPause.selector);
+        vault.unpause();
+    }
+
+    function test_registerProposal_revert_paused() public {
+        _registerAllAgents();
+        ICEOVault.Action[] memory actions = _defaultActions();
+
+        vault.pause();
+        vm.prank(agent1);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vault.registerProposal(actions, "https://moltiverse.xyz/proposals/paused");
+    }
+
+    function test_vote_revert_paused() public {
+        _registerAllAgents();
+        _submitProposal(agent1, _defaultActions());
+
+        vault.pause();
+        vm.prank(agent2);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vault.vote(0, true);
+    }
+
+    function test_execute_revert_paused() public {
+        _registerAllAgents();
+        ICEOVault.Action[] memory actions = _defaultActions();
+        _depositAndPropose(actions);
+        vm.warp(block.timestamp + EPOCH_DURATION + 1);
+
+        vault.pause();
+        address ceo = vault.getTopAgent();
+        vm.prank(ceo);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vault.execute(0, actions);
+    }
+
+    function test_convertPerformanceFee_revert_paused() public {
+        _registerAllAgents();
+        ICEOVault.Action[] memory actions = _defaultActions();
+
+        vault.pause();
+        address ceo = vault.getTopAgent();
+        vm.prank(ceo);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vault.convertPerformanceFee(actions, 0);
+    }
+
+    function test_settleEpoch_revert_paused() public {
+        vault.pause();
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vault.settleEpoch();
+    }
+
+    function test_recoverNative() public {
+        vm.deal(address(vault), 2 ether);
+        address recipient = makeAddr("recipient");
+        uint256 balanceBefore = recipient.balance;
+
+        vault.recoverNative(recipient, 1 ether);
+
+        assertEq(recipient.balance, balanceBefore + 1 ether);
+        assertEq(address(vault).balance, 1 ether);
+    }
+
+    function test_recoverNative_revert_notOwner() public {
+        vm.deal(address(vault), 1 ether);
+        vm.prank(agent1);
+        vm.expectRevert(ICEOVault.NotOwner.selector);
+        vault.recoverNative(makeAddr("recipient"), 1 ether);
+    }
+
+    function test_recoverNative_revert_zeroAddress() public {
+        vm.deal(address(vault), 1 ether);
+        vm.expectRevert(ICEOVault.ZeroAddress.selector);
+        vault.recoverNative(address(0), 1 ether);
+    }
+
+    function test_recoverNative_revert_insufficientBalance() public {
+        vm.deal(address(vault), 1 ether);
+        vm.expectRevert(ICEOVault.NativeTransferFailed.selector);
+        vault.recoverNative(makeAddr("recipient"), 2 ether);
+    }
+
+    function test_recoverNative_zeroAmount_noOp() public {
+        vm.deal(address(vault), 1 ether);
+        address recipient = makeAddr("recipient");
+        vault.recoverNative(recipient, 0);
+        assertEq(recipient.balance, 0);
+        assertEq(address(vault).balance, 1 ether);
     }
 
     // ══════════════════════════════════════════════════════════════
