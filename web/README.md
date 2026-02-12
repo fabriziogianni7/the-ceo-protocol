@@ -33,7 +33,7 @@ The `/discuss` page now reads/writes persistent messages via Next.js API routes 
 
 Required env vars:
 
-- `REDIS_URL`
+- `KV_REST_API_URL`
 - `KV_REST_API_TOKEN`
 
 Routes:
