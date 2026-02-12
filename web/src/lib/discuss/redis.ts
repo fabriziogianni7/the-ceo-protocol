@@ -2,7 +2,7 @@ import { Redis } from "@upstash/redis";
 
 let _redis: Redis | null = null;
 
-function _getRequiredEnv(name: "UPSTASH_REDIS_REST_URL" | "UPSTASH_REDIS_REST_TOKEN"): string {
+function _getRequiredEnv(name: "REDIS_URL" | "KV_REST_API_TOKEN"): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
@@ -16,8 +16,8 @@ export function getDiscussRedis(): Redis {
   }
 
   _redis = new Redis({
-    url: _getRequiredEnv("UPSTASH_REDIS_REST_URL"),
-    token: _getRequiredEnv("UPSTASH_REDIS_REST_TOKEN"),
+    url: _getRequiredEnv("REDIS_URL"),
+    token: _getRequiredEnv("KV_REST_API_TOKEN"),
   });
 
   return _redis;
