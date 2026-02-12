@@ -15,16 +15,16 @@ export const monadMainnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_MONAD_RPC_URL ?? fallbackRpcUrl],
+      http: [process.env.NEXT_PUBLIC_MONAD_RPC_URL || fallbackRpcUrl],
     },
     public: {
-      http: [process.env.NEXT_PUBLIC_MONAD_RPC_URL ?? fallbackRpcUrl],
+      http: [process.env.NEXT_PUBLIC_MONAD_RPC_URL || fallbackRpcUrl],
     },
   },
   blockExplorers: {
     default: {
       name: "Monad Explorer",
-      url: process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL ?? fallbackExplorerUrl,
+      url: process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL || fallbackExplorerUrl,
     },
   },
 });

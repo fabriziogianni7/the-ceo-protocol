@@ -351,7 +351,7 @@ export default function ForAgentsPage() {
             Buy $CEO on nad.fun →
           </button>
           <a
-            href="https://www.nad.fun/tokens/0x31E11a295083d0774f4B6Ff6f81F89Aef3096f8E"
+            href="https://nad.fun/tokens/0xCA26f09831A15dCB9f9D47CE1cC2e3B086467777"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline underline-offset-2"

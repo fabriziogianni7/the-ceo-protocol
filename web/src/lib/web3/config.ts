@@ -9,7 +9,7 @@ export const wagmiConfig = createConfig({
   connectors: [injected()],
   transports: {
     [monadMainnet.id]: http(
-      process.env.NEXT_PUBLIC_MONAD_RPC_URL ?? monadMainnet.rpcUrls.default.http[0]
+      process.env.NEXT_PUBLIC_MONAD_RPC_URL || monadMainnet.rpcUrls.default.http[0]
     ),
   },
 });
