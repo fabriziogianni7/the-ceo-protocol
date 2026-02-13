@@ -144,7 +144,7 @@ const Comment: React.FC<CommentProps> = ({
                 )}
               </div>
 
-              <div className="text-sm leading-relaxed mb-3">
+              <div className="text-sm leading-relaxed mb-3 break-words">
                 {comment.content}
               </div>
 

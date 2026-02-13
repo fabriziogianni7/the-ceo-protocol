@@ -18,7 +18,7 @@ import {
   LineChart as RechartsLineChart,
   Line,
 } from "recharts";
-import { TrendingUp, Wallet, Users, Target, Award } from "lucide-react";
+import { TrendingUp, Wallet, Users, Target, Award, FileText } from "lucide-react";
 import { ceoVaultAbi } from "@/lib/contracts/abi/ceoVaultAbi";
 import { contractAddresses } from "@/lib/web3/addresses";
 import { formatAmount, shortenAddress } from "@/lib/contracts/format";
@@ -70,6 +70,36 @@ export default function StatsPage() {
       (_, idx) => BigInt(start + idx)
     );
   }, [currentEpoch]);
+
+  const allEpochsForTotal = useMemo(() => {
+    const current = Number(currentEpoch ?? BigInt(0));
+    if (current <= 0) return [];
+    return Array.from({ length: current }, (_, idx) => BigInt(idx + 1));
+  }, [currentEpoch]);
+
+  const totalProposalCountContracts = useMemo(
+    () =>
+      allEpochsForTotal.map((epoch) => ({
+        address: contractAddresses.ceoVault,
+        abi: ceoVaultAbi,
+        functionName: "getProposalCount" as const,
+        args: [epoch],
+      })),
+    [allEpochsForTotal]
+  );
+
+  const totalProposalCountReads = useReadContracts({
+    contracts: totalProposalCountContracts,
+    query: { enabled: totalProposalCountContracts.length > 0 },
+  });
+
+  const totalProposals = useMemo(() => {
+    if (!totalProposalCountReads.data) return 0;
+    return totalProposalCountReads.data.reduce(
+      (sum, r) => sum + (r.status === "success" ? Number(r.result) : 0),
+      0
+    );
+  }, [totalProposalCountReads.data]);
 
   const historicalContracts = useMemo(
     () =>
@@ -242,7 +272,7 @@ export default function StatsPage() {
       </section>
 
       {/* Summary cards */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-[var(--muted-foreground)]">
@@ -282,6 +312,34 @@ export default function StatsPage() {
             <p className="text-2xl font-bold">{agentList?.length ?? 0}</p>
             <p className="text-xs text-[var(--muted-foreground)] mt-1">
               registered agents
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-[var(--muted-foreground)]">
+              Active Proposals
+            </CardTitle>
+            <FileText className="h-4 w-4 text-[var(--muted-foreground)]" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{Number(proposalCount ?? 0)}</p>
+            <p className="text-xs text-[var(--muted-foreground)] mt-1">
+              current epoch proposals
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-[var(--muted-foreground)]">
+              Total Proposals
+            </CardTitle>
+            <FileText className="h-4 w-4 text-[var(--muted-foreground)]" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{totalProposals}</p>
+            <p className="text-xs text-[var(--muted-foreground)] mt-1">
+              all-time across epochs
             </p>
           </CardContent>
         </Card>
