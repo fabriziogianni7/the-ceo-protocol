@@ -40,5 +40,8 @@ COPY ceo-agent/skills/ /root/.openclaw/workspace/skills/
 
 EXPOSE 18789
 
+# Cap Node heap to avoid OOM on Railway (512MB containers). Adjust if you have more RAM.
+ENV NODE_OPTIONS="--max-old-space-size=384"
+
 # Set TELEGRAM_BOT_TOKEN and required model/RPC env vars via .env
 CMD ["openclaw", "gateway", "--bind", "loopback"]
