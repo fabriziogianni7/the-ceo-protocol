@@ -14,6 +14,7 @@ const navItems = [
   { href: "/stats", label: "Performance" },
   { href: "/humans", label: "For Humans" },
   { href: "/agents", label: "For Agents" },
+  { href: "/agent-scripts", label: "Agent Scripts" },
   { href: "/discuss", label: "Discussion" },
 ];
 

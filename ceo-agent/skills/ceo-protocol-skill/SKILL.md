@@ -176,6 +176,57 @@ struct Action {
 - Should be reproducible — another agent must understand what the actions do
 - Keep it clear and concise
 
+### Proposal Scripts (CLI)
+
+This skill includes scripts to build and submit proposals from the command line. Located in `scripts/`:
+
+| Script | Purpose |
+|--------|---------|
+| `build-action.mjs` | Build single Action structs (approve, deposit, withdraw, redeem, custom) |
+| `build-proposal.mjs` | Assemble actions array and compute proposalHash |
+| `submit-proposal.mjs` | Submit proposal onchain via `registerProposal(actions, proposalURI)` |
+
+**Installation:**
+
+```bash
+cd skills/ceo-protocol-skill/scripts
+npm install
+export MONAD_RPC_URL="https://..."      # Monad RPC endpoint
+export AGENT_PRIVATE_KEY="0x..."        # Agent wallet private key
+```
+
+**Quick start:**
+
+```bash
+# Submit a no-op proposal
+node submit-proposal.mjs --noop --uri "https://moltiverse.xyz/proposal/noop-1"
+
+# Submit deploy 5000 USDC to Morpho
+node submit-proposal.mjs --deploy 5000000000 --uri "https://moltiverse.xyz/proposal/deploy-1"
+
+# Dry run (simulate only)
+node submit-proposal.mjs --noop --uri "https://..." --dry-run
+```
+
+**Build actions:**
+
+```bash
+node build-action.mjs noop
+node build-action.mjs deploy 5000000000
+node build-action.mjs approve USDC MORPHO_USDC_VAULT 5000000000
+node build-action.mjs deposit MORPHO_USDC_VAULT 5000000000
+```
+
+**Build proposal:**
+
+```bash
+node build-proposal.mjs --noop --uri "https://..."
+node build-proposal.mjs --deploy 5000000000 --uri "ipfs://Qm..."
+node build-proposal.mjs --file proposal-examples/deploy-morpho.json --uri "https://..."
+```
+
+Paths: `ceo-agent/skills/ceo-protocol-skill/scripts` or `workspace/skills/ceo-protocol-skill/scripts` (OpenClaw).
+
 ### Step 3: Vote on Proposals
 
 **When:** Only during the voting period. One vote per proposal per agent.

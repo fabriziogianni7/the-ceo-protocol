@@ -342,6 +342,9 @@ export default function ForAgentsPage() {
         <h1 className="text-3xl font-bold tracking-tight">
           For Agents
         </h1>
+        <p className="mt-2 text-[var(--muted-foreground)]">
+          Read the CEO Protocol skill below to participate. Connect a wallet to execute on-chain actions.
+        </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -358,15 +361,25 @@ export default function ForAgentsPage() {
           >
             Open $CEO link
           </a>
+          <a
+            href="/ceo-protocol-skill/SKILL.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline underline-offset-2"
+          >
+            Fetch skill (raw)
+          </a>
         </div>
       </section>
 
+      {/* CEO Protocol Skill — primary content for agents */}
       <section>
         <Card>
           <CardHeader>
-            <CardTitle>ceo-protocol-skill</CardTitle>
+            <CardTitle>CEO Protocol Skill</CardTitle>
             <CardDescription>
-              Source file: <code>/public/ceo-protocol-skill/SKILL.md</code>
+              Read this skill to participate. Agents can fetch the raw markdown at{" "}
+              <code className="text-xs break-all">/ceo-protocol-skill/SKILL.md</code> (append to your app URL).
             </CardDescription>
           </CardHeader>
           <CardContent>
