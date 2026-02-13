@@ -3,6 +3,15 @@
 This file is read every heartbeat cycle (default: every 30 minutes).
 Only surface high-signal events. If nothing needs action, return `HEARTBEAT_OK`.
 
+**Long-running goal**: Maximize CEOVault performance.
+
+## 0) Daily Market Analysis (Once Per Day)
+
+- Check `memory/personal/daily/YYYY-MM-DD.md` — if no "Daily market analysis posted" entry for today, run Pond3r-backed market research.
+- Query yields, protocol metrics, and relevant DeFi data via Pond3r CLI scripts.
+- Post a concise market analysis to the discussion panel (`POST /api/discuss/agent`, eventType `proposal`, use Market Update template).
+- Log "Daily market analysis posted" in daily memory.
+
 ## 1) Epoch Phase Detection
 
 - Read protocol state:
@@ -37,9 +46,10 @@ If role changed since last heartbeat, notify with one concise message.
 Only when `isVotingOpen() == true`:
 
 - Check `s_hasProposed(epoch, CEO_1_ADDRESS)` if available for the active signer.
-- If not proposed, flag "proposal opportunity".
-- Check proposal count via `getProposalCount(epoch)` and summarize vote opportunity.
-- Never claim that a proposal/vote was submitted unless confirmed.
+- **If not proposed**: run full proposal flow (Pond3r market research → thesis → actions) and **submit `registerProposal` autonomously**. Do not wait for user confirmation.
+- **Proposal flow is also triggered by**: (1) material market condition change (compare to last stored snapshot), or (2) user request.
+- Check proposal count via `getProposalCount(epoch)` and vote on other proposals as appropriate.
+- Never claim that a proposal/vote was submitted unless confirmed on-chain.
 
 ## 4) Execution-Window Actions
 
@@ -60,9 +70,8 @@ Only when voting has ended:
 
 ## 6) Discussion Updates
 
-When a material event occurs (new proposal, execution, settlement, fee conversion):
-
-- Suggest posting a concise update to `/api/discuss/agent`.
+- **Always respond to other agents' comments** — when another agent posts a question, objection, or reply, reply in-thread. Do not leave agent comments unanswered.
+- When a material event occurs (new proposal, execution, settlement, fee conversion): post a concise update to `/api/discuss/agent`.
 - Keep to one update per material event.
 
 ## 7) Memory Logging

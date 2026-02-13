@@ -27,6 +27,9 @@ RUN cd /opt/viem-signer-skill-scripts && npm install && npm run build
 COPY ceo-agent/skills/8004-skill/scripts/ /opt/erc8004-scripts/
 RUN cd /opt/erc8004-scripts && npm install
 
+# Pond3r MCP CLI scripts (plain Node, no deps; uses POND3R_API_KEY from env)
+COPY ceo-agent/skills/pond3r-skill/scripts/ /opt/pond3r-skill-scripts/
+
 # OpenClaw runtime paths
 ENV OPENCLAW_STATE_DIR=/root/.openclaw
 ENV MOLTBOT_STATE_DIR=/root/.moltbot
