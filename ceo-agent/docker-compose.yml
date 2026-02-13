@@ -1,0 +1,15 @@
+# Build: docker compose -f ceo-agent/docker-compose.yml build
+# Up: docker compose -f ceo-agent/docker-compose.yml up -d
+# Configure env in ceo-agent/.env before startup.
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: ceo-agent/Dockerfile
+    env_file: .env
+    volumes:
+      - wallet-data:/root/.openclaw
+    restart: unless-stopped
+
+volumes:
+  wallet-data:

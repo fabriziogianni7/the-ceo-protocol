@@ -1,0 +1,21 @@
+{
+  "name": "viem-local-signer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local viem signer plugin for OpenClaw agents",
+  "bin": {
+    "viem-local-signer": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "viem": "^2.38.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2"
+  }
+}

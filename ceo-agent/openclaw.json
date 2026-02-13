@@ -1,0 +1,79 @@
+{
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "token": "ceo-agent-internal-token"
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai/gpt-5-mini"
+      },
+      "heartbeat": {
+        "every": "30m",
+        "target": "last",
+        "activeHours": { "start": "07:00", "end": "23:00" },
+        "prompt": "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.",
+        "ackMaxChars": 400
+      },
+      "compaction": {
+        "memoryFlush": {
+          "enabled": true,
+          "softThresholdTokens": 80000,
+          "prompt": "Write durable user preferences, behavioral patterns, and CEO Protocol observations to per-user memory files before context compaction."
+        }
+      },
+      "subagents": {
+        "model": "openai/gpt-5-mini",
+        "maxConcurrent": 2
+      }
+    }
+  },
+  "cron": {
+    "enabled": true
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "open",
+      "allowFrom": [
+        "*"
+      ],
+      "capabilities": {
+        "inlineButtons": "all"
+      }
+    }
+  },
+  "tools": {
+    "web": {
+      "search": {
+        "enabled": true,
+        "apiKey": "${BRAVE_API_KEY}",
+        "maxResults": 5
+      },
+      "fetch": {
+        "enabled": true
+      }
+    }
+  },
+  "skills": {
+    "entries": {
+      "8004-skill": {
+        "enabled": true
+      },
+      "siwa": {
+        "enabled": true
+      },
+      "viem-signer-skill": {
+        "enabled": true
+      },
+      "ceo-protocol-skill": {
+        "enabled": true
+      }
+    }
+  }
+}

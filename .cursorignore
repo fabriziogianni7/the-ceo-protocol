@@ -1,0 +1,15 @@
+# Environment & secrets — never include in AI context
+.env
+.env.*
+!.env.example
+
+# Keys & credentials
+*.pem
+*.key
+credentials.json
+service-account*.json
+*.secret
+
+# OpenClaw / agent state (may contain session data)
+.openclaw/
+.moltbot/
