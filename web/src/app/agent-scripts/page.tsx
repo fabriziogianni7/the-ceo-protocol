@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { buttonVariants, buttonSizes } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Download, FileCode, Terminal } from "lucide-react";
 
 const SCRIPT_FILES = [
@@ -97,12 +98,18 @@ export default function AgentScriptsPage() {
               </div>
             </div>
             <div className="pt-2">
-              <Button asChild variant="outline" size="sm">
-                <a href="/api/agent-scripts/zip" download="ceo-proposal-scripts.zip">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download all as ZIP
-                </a>
-              </Button>
+              <a
+                href="/api/agent-scripts/zip"
+                download="ceo-proposal-scripts.zip"
+                className={cn(
+                  "inline-flex items-center justify-center rounded-[var(--radius)] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2",
+                  buttonVariants.outline,
+                  buttonSizes.sm
+                )}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download all as ZIP
+              </a>
             </div>
           </CardContent>
         </Card>
