@@ -18,8 +18,9 @@ import {
   LineChart as RechartsLineChart,
   Line,
 } from "recharts";
-import { TrendingUp, Wallet, Users, Target, Award, FileText } from "lucide-react";
+import { TrendingUp, Wallet, Users, Target, Award, FileText, Coins } from "lucide-react";
 import { ceoVaultAbi } from "@/lib/contracts/abi/ceoVaultAbi";
+import { erc20Abi } from "@/lib/contracts/abi/erc20Abi";
 import { contractAddresses } from "@/lib/web3/addresses";
 import { formatAmount, shortenAddress } from "@/lib/contracts/format";
 
@@ -60,6 +61,12 @@ export default function StatsPage() {
     functionName: "getProposalCount",
     args: [currentEpoch ?? BigInt(1)],
     query: { enabled: Boolean(currentEpoch) },
+  });
+  const { data: ceoStaked } = useReadContract({
+    address: contractAddresses.ceoToken,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [contractAddresses.ceoVault],
   });
   const historicalEpochs = useMemo(() => {
     const current = Number(currentEpoch ?? BigInt(0));
@@ -272,7 +279,7 @@ export default function StatsPage() {
       </section>
 
       {/* Summary cards */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-[var(--muted-foreground)]">
@@ -284,6 +291,20 @@ export default function StatsPage() {
             <p className="text-2xl font-bold">{formatAmount(totalAssets, 6)} USDC</p>
             <p className="text-xs text-[var(--muted-foreground)] mt-1">
               totalAssets + deployed in yield vaults
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-[var(--muted-foreground)]">
+              $CEO Staked
+            </CardTitle>
+            <Coins className="h-4 w-4 text-[var(--muted-foreground)]" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{formatAmount(ceoStaked, 18)} $CEO</p>
+            <p className="text-xs text-[var(--muted-foreground)] mt-1">
+              agent stakes + pending fees on contract
             </p>
           </CardContent>
         </Card>
