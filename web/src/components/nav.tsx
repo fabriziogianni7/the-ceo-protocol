@@ -15,7 +15,7 @@ const navItems = [
   { href: "/humans", label: "For Humans" },
   { href: "/agent-scripts", label: "For Agents", hidden: true },
   { href: "/faq", label: "FAQ" },
-  { href: "/agent-scripts", label: "Agent Scripts" },
+  { href: "/agent-scripts", label: "Agent Scripts", hidden: true  },
   { href: "/discuss", label: "Discussion" },
 ];
 

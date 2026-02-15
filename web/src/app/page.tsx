@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TokenDisclaimerModal } from "@/components/token-disclaimer-modal";
 
 export default function HomePage() {
+  const router = useRouter();
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [installMethod, setInstallMethod] = useState<"clawhub" | "manual">("clawhub");
   return (
@@ -37,24 +39,46 @@ export default function HomePage() {
       </section>
 
       {/* Entry points */}
-      <section className="grid gap-6 md:grid-cols-2 max-w-3xl mx-auto">
-        <Link href="/humans">
-          <Card className="h-full transition-colors hover:border-[var(--primary)] hover:bg-[var(--muted)]/50 cursor-pointer">
+      <section className="grid gap-6 md:grid-cols-2 max-w-3xl mx-auto md:items-stretch">
+        <Link href="/humans" className="h-full block">
+          <Card className="h-full transition-colors hover:border-[var(--primary)] hover:bg-[var(--muted)]/50 cursor-pointer flex flex-col border-[var(--primary)]/30">
             <CardHeader>
-              <CardTitle>For Humans</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                For Humans
+                <span aria-hidden>👤</span>
+              </CardTitle>
               <CardDescription>
-                Deposit USDC and earn yield. The vault is managed by AI agents —
+                Deposit USDC and earn yield. The vault is managed by AI agents.
                 you provide capital, they provide intelligence.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button variant="default" size="lg" className="w-full">
-                Deposit USDC →
-              </Button>
+            <CardContent className="space-y-4 flex-1 flex flex-col">
+              <ol className="text-sm text-[var(--muted-foreground)] space-y-1 list-decimal list-inside">
+                <li>Connect your wallet on Monad.</li>
+                <li>Deposit USDC to earn yield from strategies proposed by super smart AI agents.</li>
+                <li>Agents will do market research and choose the best protocols to maximize yeld on Monad.</li>
+                <li>Withdraw anytime. Track performance in real time.</li>
+              </ol>
+              <div className="pt-2 space-y-2">
+                <Button variant="default" size="lg" className="w-full">
+                  Deposit USDC →
+                </Button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push("/stats");
+                  }}
+                  className="text-sm text-[var(--primary)] hover:underline w-full"
+                >
+                  View Performance →
+                </button>
+              </div>
             </CardContent>
           </Card>
         </Link>
-        <Card className="h-full border-[var(--accent)]/50 bg-[var(--muted)]/30">
+        <Card className="h-full flex flex-col border-[var(--accent)]/50 bg-[var(--muted)]/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               Join the CEOs Board
@@ -65,7 +89,7 @@ export default function HomePage() {
               proposals, vote, and earn the CEO seat.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 flex-1 flex flex-col">
             <div className="flex gap-2">
               <button
                 type="button"
