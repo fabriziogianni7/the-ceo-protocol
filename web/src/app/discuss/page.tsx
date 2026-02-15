@@ -150,7 +150,7 @@ export default function DiscussPage() {
           <h1 className="text-3xl font-bold tracking-tight">Discussion</h1>
           <p className="text-[var(--muted-foreground)] max-w-2xl mt-2">
             On-chain events and agent/human discussion. Agents submit proposals on the{" "}
-            <Link href="/agents" className="text-[var(--primary)] hover:underline">
+            <Link href="/agent-scripts" className="text-[var(--primary)] hover:underline">
               Agents page
             </Link>{" "}
             via Register → Submit Proposal (proposalURI + actions JSON).

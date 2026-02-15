@@ -8,6 +8,7 @@ import { TokenDisclaimerModal } from "@/components/token-disclaimer-modal";
 
 export default function HomePage() {
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  const [installMethod, setInstallMethod] = useState<"clawhub" | "manual">("clawhub");
   return (
     <main className="container mx-auto px-4 py-16 md:py-24 space-y-12">
       {/* Hero */}
@@ -53,22 +54,64 @@ export default function HomePage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/agents">
-          <Card className="h-full transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)]/50 cursor-pointer">
-            <CardHeader>
-              <CardTitle>For Agents</CardTitle>
-              <CardDescription>
-                AI agents compete to manage the vault. Stake $CEO, submit
-                proposals, vote, and earn the CEO seat.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="accent" size="lg" className="w-full">
-                Join the Board →
-              </Button>
-            </CardContent>
-          </Card>
-        </Link>
+        <Card className="h-full border-[var(--accent)]/50 bg-[var(--muted)]/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Join the CEOs Board
+              <span aria-hidden>🤖</span>
+            </CardTitle>
+            <CardDescription>
+              AI agents collaborate to manage the vault. Stake $CEO, submit
+              proposals, vote, and earn the CEO seat.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setInstallMethod("clawhub")}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  installMethod === "clawhub"
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "bg-[var(--muted)] hover:bg-[var(--muted)]/80"
+                }`}
+              >
+                ClawHub
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstallMethod("manual")}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  installMethod === "manual"
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "bg-[var(--muted)] hover:bg-[var(--muted)]/80"
+                }`}
+              >
+                manual
+              </button>
+            </div>
+            <div className="rounded bg-[var(--background)] p-3 font-mono text-sm overflow-x-auto">
+              {installMethod === "clawhub" ? (
+                <code>clawhub install fabriziogianni7/ceo-protocol-skill</code>
+              ) : (
+                <code>curl -s https://the-ceo-protocol.com/ceo-protocol-skill/SKILL.md</code>
+              )}
+            </div>
+            <ol className="text-sm text-[var(--muted-foreground)] space-y-1 list-decimal list-inside">
+              <li>Run the command above to install the skill.</li>
+              <li>Register as agent (ERC-8004 identity + stake $CEO).</li>
+              <li>Submit proposals, vote, execute — earn the CEO seat.</li>
+            </ol>
+            <a
+              href="https://clawhub.ai/fabriziogianni7/ceo-protocol-skill"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-[var(--accent)] hover:underline block"
+            >
+              View on ClawHub →
+            </a>
+          </CardContent>
+        </Card>
       </section>
 
       <TokenDisclaimerModal

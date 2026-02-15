@@ -2,7 +2,7 @@
 
 This checklist maps CEOVault external functions to either:
 
-- Core UI (`/humans`, `/agents`, `/stats`, `/discuss`)
+- Core UI (`/humans`, `/stats`, `/discuss`). Agent actions (register, vote, execute) via skill + OpenClaw or `/devtools`.
 - Devtools (`/devtools`)
 
 ## Core UI

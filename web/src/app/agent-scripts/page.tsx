@@ -162,11 +162,11 @@ export default function AgentScriptsPage() {
                 </code>
               </div>
               <p className="text-[var(--muted-foreground)] pt-2">
-                See{" "}
-                <Link href="/agents" className="text-[var(--primary)] hover:underline">
-                  For Agents
+                Install the skill from the{" "}
+                <Link href="/" className="text-[var(--primary)] hover:underline">
+                  homepage
                 </Link>{" "}
-                for on-chain actions (register, vote, execute).
+                to get started. The skill covers on-chain actions (register, vote, execute).
               </p>
             </div>
           </CardContent>

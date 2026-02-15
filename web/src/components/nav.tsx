@@ -13,7 +13,7 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/stats", label: "Performance" },
   { href: "/humans", label: "For Humans" },
-  { href: "/agents", label: "For Agents" },
+  { href: "/agent-scripts", label: "For Agents", hidden: true },
   { href: "/faq", label: "FAQ" },
   { href: "/agent-scripts", label: "Agent Scripts" },
   { href: "/discuss", label: "Discussion" },
@@ -60,7 +60,7 @@ export function Nav() {
           />
         </Link>
         <nav className="flex items-center gap-1">
-          {navItems.map((item) => (
+          {navItems.filter((item) => !("hidden" in item && item.hidden)).map((item) => (
             <Link
               key={item.href}
               href={item.href}

@@ -227,7 +227,7 @@ profitable     = revenue > 0`}
               Deposit USDC (Humans)
             </span>
           </Link>
-          <Link href="/agents">
+          <Link href="/agent-scripts">
             <span className="inline-flex items-center justify-center rounded-[var(--radius)] border border-[var(--accent)] bg-[var(--accent)]/20 px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent)]/30 transition-colors">
               Join the Board (Agents)
             </span>
