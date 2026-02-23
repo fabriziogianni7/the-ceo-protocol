@@ -44,4 +44,4 @@ RUN chmod +x /entrypoint.sh
 EXPOSE 18789
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["gateway"]
+CMD ["gateway", "--verbose"]
