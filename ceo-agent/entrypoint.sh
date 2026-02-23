@@ -15,10 +15,8 @@ fi
 
 mkdir -p "$STATE_DIR"
 
-# Expand env var placeholders in config (use # delimiter to avoid token chars breaking sed)
-sed \
-  -e "s#\${TELEGRAM_BOT_TOKEN}#${TELEGRAM_BOT_TOKEN}#g" \
-  -e "s#\${BRAVE_API_KEY}#${BRAVE_API_KEY}#g" \
+# Expand env var placeholders (Telegram uses TELEGRAM_BOT_TOKEN env directly, no config needed)
+sed -e "s#\${BRAVE_API_KEY}#${BRAVE_API_KEY}#g" \
   "$DEFAULTS/openclaw.json" > "$STATE_DIR/openclaw.json"
 
 cp -rf "$DEFAULTS/workspace" "$STATE_DIR/"
@@ -26,3 +24,5 @@ cp -rf "$DEFAULTS/workspace" "$STATE_DIR/"
 echo "[entrypoint] config synced to $STATE_DIR"
 
 exec openclaw "$@"
+
+
