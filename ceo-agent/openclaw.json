@@ -64,7 +64,10 @@
       }
     },
     "exec": {
-      "pathPrepend": ["~/bin", "/opt/oss/bin"]
+      "pathPrepend": [
+        "~/bin",
+        "/opt/oss/bin"
+      ]
     }
   },
   "skills": {
@@ -81,6 +84,11 @@
       "ceo-protocol-skill": {
         "enabled": true
       }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": { "enabled": true }
     }
   }
 }
