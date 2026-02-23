@@ -44,7 +44,9 @@
       "enabled": true,
       "botToken": "${TELEGRAM_BOT_TOKEN}",
       "dmPolicy": "open",
-      "allowFrom": ["*"],
+      "allowFrom": [
+        "*"
+      ],
       "capabilities": {
         "inlineButtons": "all"
       }
