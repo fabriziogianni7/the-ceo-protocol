@@ -64,14 +64,7 @@
       }
     },
     "exec": {
-      "notifyOnExit": true,
-      "approvalRunningNoticeMs": 10000,
-      "host": "sandbox",
-      "ask": "on-miss",
-      "pathPrepend": [
-        "~/bin",
-        "/opt/oss/bin"
-      ]
+      "pathPrepend": ["~/bin", "/opt/oss/bin"]
     }
   },
   "skills": {
