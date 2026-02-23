@@ -44,7 +44,7 @@
       "enabled": true,
       "dmPolicy": "allowlist",
       "allowFrom": [
-        "@fabriziogianni7"
+        "1798343888"
       ],
       "capabilities": {
         "inlineButtons": "all"
