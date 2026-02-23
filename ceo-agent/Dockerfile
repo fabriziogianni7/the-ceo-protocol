@@ -34,9 +34,9 @@ COPY ceo-agent/skills/pond3r-skill/scripts/ /opt/pond3r-skill-scripts/
 ENV OPENCLAW_STATE_DIR=/root/.openclaw
 ENV MOLTBOT_STATE_DIR=/root/.moltbot
 
-COPY ceo-agent/openclaw.json /root/.openclaw/openclaw.json
-COPY ceo-agent/workspace/ /root/.openclaw/workspace/
-COPY ceo-agent/skills/ /root/.openclaw/workspace/skills/
+COPY ceo-agent/openclaw.json /opt/openclaw-defaults/openclaw.json
+COPY ceo-agent/workspace/ /opt/openclaw-defaults/workspace/
+COPY ceo-agent/skills/ /opt/openclaw-defaults/workspace/skills/
 
 COPY ceo-agent/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
