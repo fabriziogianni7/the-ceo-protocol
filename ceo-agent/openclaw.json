@@ -11,9 +11,12 @@
         "primary": "openai/gpt-5-mini"
       },
       "heartbeat": {
-        "every": "30m",
+        "every": "6h",
         "target": "last",
-        "activeHours": { "start": "07:00", "end": "23:00" },
+        "activeHours": {
+          "start": "07:00",
+          "end": "23:00"
+        },
         "prompt": "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.",
         "ackMaxChars": 400
       },
@@ -39,9 +42,9 @@
   "channels": {
     "telegram": {
       "enabled": true,
-      "dmPolicy": "open",
+      "dmPolicy": "allowlist",
       "allowFrom": [
-        "*"
+        "@fabriziogianni7"
       ],
       "capabilities": {
         "inlineButtons": "all"
@@ -51,13 +54,24 @@
   "tools": {
     "web": {
       "search": {
+        "provider": "brave",
         "enabled": true,
         "apiKey": "${BRAVE_API_KEY}",
-        "maxResults": 5
+        "maxResults": 10
       },
       "fetch": {
         "enabled": true
       }
+    },
+    "exec": {
+      "notifyOnExit": true,
+      "approvalRunningNoticeMs": 10000,
+      "host": "sandbox",
+      "ask": "on-miss",
+      "pathPrepend": [
+        "~/bin",
+        "/opt/oss/bin"
+      ]
     }
   },
   "skills": {
