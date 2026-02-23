@@ -38,9 +38,10 @@ COPY ceo-agent/openclaw.json /root/.openclaw/openclaw.json
 COPY ceo-agent/workspace/ /root/.openclaw/workspace/
 COPY ceo-agent/skills/ /root/.openclaw/workspace/skills/
 
+COPY ceo-agent/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 18789
 
-
-
-
-CMD ["openclaw", "gateway"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["gateway"]
