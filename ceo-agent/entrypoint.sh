@@ -7,7 +7,13 @@ DEFAULTS="/opt/openclaw-defaults"
 echo "[entrypoint] OPENCLAW_STATE_DIR=$STATE_DIR"
 
 mkdir -p "$STATE_DIR"
-cp -f "$DEFAULTS/openclaw.json" "$STATE_DIR/openclaw.json"
+
+# Expand env var placeholders in config before writing
+sed \
+  -e "s|\${TELEGRAM_BOT_TOKEN}|${TELEGRAM_BOT_TOKEN}|g" \
+  -e "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY}|g" \
+  "$DEFAULTS/openclaw.json" > "$STATE_DIR/openclaw.json"
+
 cp -rf "$DEFAULTS/workspace" "$STATE_DIR/"
 
 echo "[entrypoint] config synced to $STATE_DIR"
