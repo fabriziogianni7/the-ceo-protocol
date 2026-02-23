@@ -43,4 +43,4 @@ EXPOSE 18789
 
 
 
-CMD ["openclaw", "gateway", "--bind", "0.0.0.0"]
+CMD ["openclaw", "gateway"]
