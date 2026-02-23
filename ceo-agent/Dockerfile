@@ -42,5 +42,5 @@ EXPOSE 18789
 
 
 
-# Set TELEGRAM_BOT_TOKEN and required model/RPC env vars via .env
-CMD ["openclaw", "gateway", "--bind", "loopback"]
+
+CMD ["openclaw", "gateway", "--bind", "0.0.0.0"]
