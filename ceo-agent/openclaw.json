@@ -44,7 +44,7 @@
       "enabled": true,
       "botToken": "${TELEGRAM_BOT_TOKEN}",
       "dmPolicy": "allowlist",
-      "allowFrom": ["1798343888"],
+      "allowFrom": ["*"],
       "capabilities": {
         "inlineButtons": "all"
       }
@@ -61,6 +61,9 @@
       "fetch": {
         "enabled": true
       }
+    },
+    "exec": {
+      "pathPrepend": ["~/bin", "/opt/oss/bin"]
     }
   },
   "skills": {
