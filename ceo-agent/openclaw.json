@@ -61,9 +61,6 @@
       "fetch": {
         "enabled": true
       }
-    },
-    "exec": {
-      "pathPrepend": ["~/bin", "/opt/oss/bin"]
     }
   },
   "skills": {
