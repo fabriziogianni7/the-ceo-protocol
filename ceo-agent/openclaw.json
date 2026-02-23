@@ -43,7 +43,7 @@
     "telegram": {
       "enabled": true,
       "botToken": "${TELEGRAM_BOT_TOKEN}",
-      "dmPolicy": "allowlist",
+      "dmPolicy": "open",
       "allowFrom": ["*"],
       "capabilities": {
         "inlineButtons": "all"
