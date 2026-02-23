@@ -42,9 +42,9 @@
   "channels": {
     "telegram": {
       "enabled": true,
-      "dmPolicy": "open",
+      "dmPolicy": "pairing",
       "allowFrom": [
-        "*"
+        "${TELEGRAM_USER_ID}"
       ],
       "capabilities": {
         "inlineButtons": "all"
