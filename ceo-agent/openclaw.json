@@ -43,7 +43,7 @@
     "telegram": {
       "enabled": true,
       "dmPolicy": "allowlist",
-      "allowFrom": ["@1798343888"],
+      "allowFrom": ["1798343888"],
       "capabilities": {
         "inlineButtons": "all"
       }
