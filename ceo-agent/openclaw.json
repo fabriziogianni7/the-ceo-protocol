@@ -42,7 +42,8 @@
   "channels": {
     "telegram": {
       "enabled": true,
-      "dmPolicy": "pairing",
+      "dmPolicy": "allowlist",
+      "allowFrom": ["@1798343888"],
       "capabilities": {
         "inlineButtons": "all"
       }
