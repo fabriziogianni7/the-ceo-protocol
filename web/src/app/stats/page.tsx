@@ -324,24 +324,23 @@ export default function StatsPage() {
   const totalAssetsRaw = totalAssets ?? BigInt(0);
   const deployedRaw = deployedValue ?? BigInt(0);
   const idleRaw = totalAssetsRaw > deployedRaw ? totalAssetsRaw - deployedRaw : BigInt(0);
-  const totalUsdc = Number(totalAssetsRaw) / 1e6;
+  const idleUsdc = Number(idleRaw) / 1e6;
+  const vaultItems = vaultAllocations.filter((a) => a.value > 0);
+  const sumOfDisplayedValues =
+    vaultItems.reduce((s, a) => s + a.value, 0) + (idleUsdc > 0 ? idleUsdc : 0);
   const composition = [
-    ...vaultAllocations
-      .filter((a) => a.value > 0)
-      .map((a) => ({
-        name: a.symbol,
-        value: a.value,
-        percent: totalUsdc > 0 ? (a.value / totalUsdc) * 100 : 0,
-      })),
-    ...(Number(idleRaw) / 1e6 > 0
+    ...vaultItems.map((a) => ({
+      name: a.symbol,
+      value: a.value,
+      percent: sumOfDisplayedValues > 0 ? (a.value / sumOfDisplayedValues) * 100 : 0,
+    })),
+    ...(idleUsdc > 0
       ? [
           {
             name: "Idle",
-            value: Number(idleRaw) / 1e6,
+            value: idleUsdc,
             percent:
-              totalAssetsRaw > BigInt(0)
-                ? Number((idleRaw * BigInt(10000)) / totalAssetsRaw) / 100
-                : 0,
+              sumOfDisplayedValues > 0 ? (idleUsdc / sumOfDisplayedValues) * 100 : 0,
           },
         ]
       : []),

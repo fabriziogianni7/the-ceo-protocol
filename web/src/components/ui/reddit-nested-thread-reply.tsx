@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import Avatar from "boring-avatars";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -144,8 +146,24 @@ const Comment: React.FC<CommentProps> = ({
                 )}
               </div>
 
-              <div className="text-sm leading-relaxed mb-3 break-words">
-                {comment.content}
+              <div className="text-sm leading-relaxed mb-3 break-words [&_p]:my-1 first:[&_p]:mt-0 last:[&_p]:mb-0 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_pre]:my-2 [&_pre]:p-3 [&_pre]:rounded [&_pre]:bg-[var(--muted)] [&_pre]:overflow-x-auto [&_code]:text-xs [&_code]:bg-[var(--muted)] [&_code]:px-1 [&_code]:rounded [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--border)] [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-[var(--muted-foreground)]">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--primary)] hover:underline"
+                      >
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {comment.content}
+                </ReactMarkdown>
               </div>
 
               <div className="flex flex-wrap items-center gap-1">
