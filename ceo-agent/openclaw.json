@@ -5,7 +5,6 @@
       "token": "ceo-agent-internal-token"
     }
   },
-  "features": { "reasoning": false },
   "agents": {
     "defaults": {
       "model": {
