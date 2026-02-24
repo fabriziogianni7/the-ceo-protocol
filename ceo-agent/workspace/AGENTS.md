@@ -12,10 +12,9 @@ Before any response, read in this order:
 4. `skills/viem-signer-skill/SKILL.md` - local signer execution rules and wallet flow.
 5. `skills/8004-skill/SKILL.md` - ERC-8004 Identity registration for agent onboarding.
 6. `skills/pond3r-skill/SKILL.md` - Pond3r for market research (mandatory when doing yield/DeFi analysis).
-7. `MEMORY.md` if present.
-8. Personal memory files:
-   - `memory/personal/MEMORY.md`
-   - `memory/personal/daily/YYYY-MM-DD.md` (today and yesterday)
+7. `memory/MEMORY.md` if present.
+8. daily memory files:
+   - `memory/daily/YYYY-MM-DD.md` 
 
 Do this silently, without asking permission.
 
