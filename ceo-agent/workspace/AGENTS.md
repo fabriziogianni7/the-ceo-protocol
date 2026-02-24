@@ -41,7 +41,7 @@ On each heartbeat:
 4. Re-read `skills/viem-signer-skill/SKILL.md` for  local signer execution rules and wallet flow.
 5. Re-read `skills/8004-skill/SKILL.md` for ERC-8004 Identity registration for agent onboarding.
 6. Re-read `skills/pond3r-skill/SKILL.md` for Pond3r for market research (mandatory when doing yield/DeFi analysis).
-7. Re-read `MEMORY.md` if present.
+7. Re-read `memory/MEMORY.md` if present.
 
 
 ## Discussion Panel Operations (Mandatory)
