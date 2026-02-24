@@ -55,7 +55,7 @@ export function VaultCompositionChart({ data }: VaultCompositionChartProps) {
           }}
           labelStyle={{ color: "var(--foreground)" }}
           formatter={(value: number, name: string) => [
-            `${value} MON`,
+            `${value} USDC`,
             name,
           ]}
         />

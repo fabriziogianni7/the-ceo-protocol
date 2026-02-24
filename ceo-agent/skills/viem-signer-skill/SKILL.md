@@ -28,6 +28,8 @@ This enforces separation of concerns: scripts prepare txs, signer only signs/sen
 
 ## Block explorer
 
+ALWAYS post the executed transaction with a link to the block explorer, eg:
+
 - `https://monadscan.com/`
 - Tx: `https://monadscan.com/tx/<hash>`
 

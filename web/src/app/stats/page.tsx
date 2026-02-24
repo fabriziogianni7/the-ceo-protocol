@@ -21,6 +21,7 @@ import {
 import { TrendingUp, Wallet, Users, Target, Award, FileText, Coins } from "lucide-react";
 import { ceoVaultAbi } from "@/lib/contracts/abi/ceoVaultAbi";
 import { erc20Abi } from "@/lib/contracts/abi/erc20Abi";
+import { erc4626Abi } from "@/lib/contracts/abi/erc4626Abi";
 import { contractAddresses } from "@/lib/web3/addresses";
 import { formatAmount, shortenAddress } from "@/lib/contracts/format";
 
@@ -35,6 +36,75 @@ export default function StatsPage() {
     abi: ceoVaultAbi,
     functionName: "getDeployedValue",
   });
+  const { data: yieldVaultAddresses } = useReadContract({
+    address: contractAddresses.ceoVault,
+    abi: ceoVaultAbi,
+    functionName: "getYieldVaults",
+  });
+
+  const vaultSymbolBalanceContracts = useMemo(
+    () =>
+      (yieldVaultAddresses ?? []).flatMap((vaultAddr: `0x${string}`) => [
+        {
+          address: vaultAddr,
+          abi: erc4626Abi,
+          functionName: "symbol" as const,
+        },
+        {
+          address: vaultAddr,
+          abi: erc4626Abi,
+          functionName: "balanceOf" as const,
+          args: [contractAddresses.ceoVault],
+        },
+      ]),
+    [yieldVaultAddresses]
+  );
+
+  const vaultSymbolBalanceReads = useReadContracts({
+    contracts: vaultSymbolBalanceContracts,
+    query: { enabled: vaultSymbolBalanceContracts.length > 0 },
+  });
+
+  const vaultShares = useMemo(() => {
+    if (!vaultSymbolBalanceReads.data || !yieldVaultAddresses?.length) return [];
+    return yieldVaultAddresses.map((_, i) => {
+      const r = vaultSymbolBalanceReads.data?.[i * 2 + 1];
+      return r?.status === "success" ? (r.result as bigint) : BigInt(0);
+    });
+  }, [vaultSymbolBalanceReads.data, yieldVaultAddresses]);
+
+  const vaultConvertToAssetsContracts = useMemo(
+    () =>
+      (yieldVaultAddresses ?? []).map((vaultAddr: `0x${string}`, i: number) => ({
+        address: vaultAddr,
+        abi: erc4626Abi,
+        functionName: "convertToAssets" as const,
+        args: [vaultShares[i] ?? BigInt(0)],
+      })),
+    [yieldVaultAddresses, vaultShares]
+  );
+
+  const vaultAssetsReads = useReadContracts({
+    contracts: vaultConvertToAssetsContracts,
+    query: { enabled: vaultConvertToAssetsContracts.length > 0 },
+  });
+
+  const vaultAllocations = useMemo(() => {
+    const addrs = yieldVaultAddresses ?? [];
+    if (addrs.length === 0) return [];
+    const symbols = addrs.map((_, i) => {
+      const r = vaultSymbolBalanceReads.data?.[i * 2];
+      return r?.status === "success" ? (r.result as string) : shortenAddress(addrs[i]);
+    });
+    const assets = addrs.map((_, i) => {
+      const r = vaultAssetsReads.data?.[i];
+      return r?.status === "success" ? Number(r.result as bigint) / 1e6 : 0;
+    });
+    return addrs.map((addr, i) => ({
+      symbol: symbols[i] ?? shortenAddress(addr),
+      value: assets[i] ?? 0,
+    }));
+  }, [yieldVaultAddresses, vaultSymbolBalanceReads.data, vaultAssetsReads.data]);
   const { data: currentEpoch } = useReadContract({
     address: contractAddresses.ceoVault,
     abi: ceoVaultAbi,
@@ -254,17 +324,27 @@ export default function StatsPage() {
   const totalAssetsRaw = totalAssets ?? BigInt(0);
   const deployedRaw = deployedValue ?? BigInt(0);
   const idleRaw = totalAssetsRaw > deployedRaw ? totalAssetsRaw - deployedRaw : BigInt(0);
+  const totalUsdc = Number(totalAssetsRaw) / 1e6;
   const composition = [
-    {
-      name: "Deployed",
-      value: Number(deployedRaw) / 1e6,
-      percent: totalAssetsRaw > BigInt(0) ? Number((deployedRaw * BigInt(10000)) / totalAssetsRaw) / 100 : 0,
-    },
-    {
-      name: "Idle",
-      value: Number(idleRaw) / 1e6,
-      percent: totalAssetsRaw > BigInt(0) ? Number((idleRaw * BigInt(10000)) / totalAssetsRaw) / 100 : 0,
-    },
+    ...vaultAllocations
+      .filter((a) => a.value > 0)
+      .map((a) => ({
+        name: a.symbol,
+        value: a.value,
+        percent: totalUsdc > 0 ? (a.value / totalUsdc) * 100 : 0,
+      })),
+    ...(Number(idleRaw) / 1e6 > 0
+      ? [
+          {
+            name: "Idle",
+            value: Number(idleRaw) / 1e6,
+            percent:
+              totalAssetsRaw > BigInt(0)
+                ? Number((idleRaw * BigInt(10000)) / totalAssetsRaw) / 100
+                : 0,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -463,13 +543,50 @@ export default function StatsPage() {
         </Card>
       </section>
 
+      {/* Capital deployment — where vault capital is deployed */}
+      <section>
+        <Card>
+          <CardHeader>
+            <CardTitle>Capital Deployment</CardTitle>
+            <CardDescription>
+              Where CEO vault capital is deployed. Each yield vault shows its symbol and USDC value.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {vaultAllocations.length > 0 ? (
+              <div className="space-y-2">
+                {vaultAllocations.map((a, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded bg-[var(--muted)]/50 px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium">{a.symbol}</span>
+                    <span>{a.value.toFixed(2)} USDC</span>
+                  </div>
+                ))}
+                {Number(idleRaw) / 1e6 > 0 && (
+                  <div className="flex items-center justify-between rounded bg-[var(--muted)]/50 px-3 py-2 text-sm">
+                    <span className="font-medium text-[var(--muted-foreground)]">Idle</span>
+                    <span>{(Number(idleRaw) / 1e6).toFixed(2)} USDC</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted-foreground)]">
+                No yield vaults configured or loading…
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
       {/* Row: Composition + Epoch Revenue */}
       <section className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Vault Composition</CardTitle>
             <CardDescription>
-              Current allocation across assets (MON, USDC).
+              Capital deployment by yield vault (symbol) and idle USDC.
             </CardDescription>
           </CardHeader>
           <CardContent>
