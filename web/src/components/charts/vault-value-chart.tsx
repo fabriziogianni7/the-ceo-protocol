@@ -39,7 +39,7 @@ export function VaultValueChart({ data }: VaultValueChartProps) {
         <YAxis
           stroke="var(--muted-foreground)"
           fontSize={11}
-          tickFormatter={(v) => `${v} USDC`}
+          tickFormatter={(v) => `${v} USD`}
         />
         <Tooltip
           contentStyle={{
@@ -48,7 +48,7 @@ export function VaultValueChart({ data }: VaultValueChartProps) {
             borderRadius: "var(--radius)",
           }}
           labelStyle={{ color: "var(--foreground)" }}
-          formatter={(value: number) => [`${value} USDC`, "Vault Value"]}
+          formatter={(value: number) => [`${value} USD`, "Vault Value"]}
           labelFormatter={(label) => `Epoch ${label}`}
         />
         <Area
@@ -57,7 +57,7 @@ export function VaultValueChart({ data }: VaultValueChartProps) {
           stroke="var(--primary)"
           strokeWidth={2}
           fill="url(#colorValue)"
-          name="Vault Value (USDC)"
+          name="Vault Value (USD)"
         />
       </RechartsAreaChart>
     </ResponsiveContainer>
