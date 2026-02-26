@@ -1138,13 +1138,17 @@ contract CEOVaultV2 is ICEOVaultV2, ERC4626Fees, ReentrancyGuard, Pausable {
         }
     }
 
-    /// @dev Validate allocations: length, vaults must be yield vaults, total bps <= 10_000. Returns false on any failure.
+    /// @dev Validate allocations: length, vaults must be yield vaults, no duplicates, total bps <= 10_000. Returns false on any failure.
     function _validateAllocations(AllocationTarget[] memory allocations) internal view returns (bool) {
         if (allocations.length == 0 || allocations.length > MAX_ALLOCATION_TARGETS) return false;
         uint256 totalBps;
         for (uint256 i = 0; i < allocations.length; i++) {
             if (!s_isYieldVault[allocations[i].vault]) return false;
             totalBps += allocations[i].bps;
+            // Reject duplicate vaults — _computeAllocationPlan would double-count deposits
+            for (uint256 j = 0; j < i; j++) {
+                if (allocations[j].vault == allocations[i].vault) return false;
+            }
         }
         return totalBps <= 10_000;
     }
@@ -1355,7 +1359,7 @@ contract CEOVaultV2 is ICEOVaultV2, ERC4626Fees, ReentrancyGuard, Pausable {
             if (data.length < 68) return false;
             bytes4 selector = bytes4(data[:4]);
             if (selector != IERC20.approve.selector) return false;
-            address spender = abi.decode(data[4:68], (address));
+            address spender = abi.decode(data[4:36], (address));
             return s_isWhitelistedTarget[spender];
         }
 
@@ -1414,7 +1418,7 @@ contract CEOVaultV2 is ICEOVaultV2, ERC4626Fees, ReentrancyGuard, Pausable {
             if (data.length < 68) continue;
             if (bytes4(data[:4]) != IERC20.approve.selector) continue;
 
-            address spender = abi.decode(data[4:68], (address));
+            address spender = abi.decode(data[4:36], (address));
             IERC20(action.target).forceApprove(spender, 0);
         }
     }
