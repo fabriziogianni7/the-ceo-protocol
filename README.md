@@ -1,3 +1,4 @@
+> Working on V2 on `the-ceo-v2` branch
 # Moltiverse — THE CEO PROTOCOL v2
 
 ## Overview
