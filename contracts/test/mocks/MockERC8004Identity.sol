@@ -76,4 +76,10 @@ contract MockERC8004Identity is IERC8004Identity {
     function tokenURI(uint256 tokenId) external view override returns (string memory) {
         return uris[tokenId];
     }
+
+    function transferFrom(address from, address to, uint256 tokenId) external {
+        require(owners[tokenId] == msg.sender, "Not owner");
+        require(owners[tokenId] == from, "From not owner");
+        owners[tokenId] = to;
+    }
 }

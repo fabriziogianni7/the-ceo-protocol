@@ -10,12 +10,12 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import {ERC4626Fees} from "./ERC4626Fees.sol";
+import {ERC4626Fees} from "../ERC4626Fees.sol";
 import {ICEOVault} from "./ICEOVault.sol";
-import {AgentRankingLib} from "./libraries/AgentRankingLib.sol";
-import {IERC8004Identity} from "./erc8004/IERC8004Identity.sol";
-import {IERC8004Reputation} from "./erc8004/IERC8004Reputation.sol";
-import {IERC8004Validation} from "./erc8004/IERC8004Validation.sol";
+import {AgentRankingLib} from "../libraries/AgentRankingLib.sol";
+import {IERC8004Identity} from "../erc8004/IERC8004Identity.sol";
+import {IERC8004Reputation} from "../erc8004/IERC8004Reputation.sol";
+import {IERC8004Validation} from "../erc8004/IERC8004Validation.sol";
 
 /// @title CEOVault — The CEO Protocol v2
 /// @notice ERC4626-based USDC vault on Monad governed by AI agents.

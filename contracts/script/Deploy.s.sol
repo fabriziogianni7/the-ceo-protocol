@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Script, console} from "forge-std/Script.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {CEOVault} from "../src/CEOVault.sol";
+import {CEOVault} from "../src/v1/CEOVault.sol";
 import {CEOVaultSwapAdapter} from "../src/adapters/CEOVaultSwapAdapter.sol";
 import {NadFunBuyAdapter} from "../src/adapters/NadFunBuyAdapter.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";

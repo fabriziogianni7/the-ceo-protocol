@@ -32,7 +32,7 @@ interface ICEOVaultV2 {
     /// @notice Thrown when claiming an ERC-8004 identity not owned by the caller
     error NotOwnerOfERC8004Identity();
 
-    /// @notice Thrown when agent has not linked an ERC-8004 identity
+    /// @notice Thrown when agent has not linked an ERC-8004 identity (e.g. in requestValidation). Not used when erc8004Id=0 in registerAgent (auto-register).
     error NoERC8004IdentityLinked();
 
     /// @notice Thrown when ERC-8004 identity registry is not configured
@@ -56,12 +56,6 @@ interface ICEOVaultV2 {
     /// @notice Thrown when attempting to execute a proposal that was already executed
     error AlreadyExecuted();
 
-    /// @notice Thrown when a non-CEO tries to execute during the CEO's grace period
-    error GracePeriodOnlyCeo();
-
-    /// @notice Thrown when neither the CEO nor second-place agent tries to execute
-    error OnlyCeoOrSecond();
-
     /// @notice Thrown when attempting to execute a proposal that didn't win
     error NotWinningProposal();
 
@@ -70,9 +64,6 @@ interface ICEOVaultV2 {
 
     /// @notice Thrown when attempting to settle an already-settled epoch
     error AlreadySettled();
-
-    /// @notice Thrown when attempting to settle an epoch before the grace period ends
-    error TooEarlyToSettle();
 
     /// @notice Thrown when attempting to get winning proposal from an epoch with no proposals
     error NoProposals();
@@ -107,9 +98,6 @@ interface ICEOVaultV2 {
     /// @notice Thrown when an action tries to send native MON (value > 0)
     error NativeTransferNotAllowed();
 
-    /// @notice Thrown when convertPerformanceFee spends more USDC than the pending fee
-    error ExcessiveSpending();
-
     /// @notice Thrown when execute() causes vault value to drop beyond the max drawdown limit
     error ExcessiveDrawdown();
 
@@ -130,12 +118,6 @@ interface ICEOVaultV2 {
 
     /// @notice Thrown when setting vault cap below current total assets
     error VaultCapBelowCurrent();
-
-    /// @notice Thrown when there is no pending performance fee to convert
-    error NoPerformanceFeeToConvert();
-
-    /// @notice Thrown when slippage check fails during fee conversion
-    error SlippageExceeded();
 
     /// @notice Thrown when adding a yield vault that already exists
     error YieldVaultAlreadyAdded();
@@ -182,6 +164,9 @@ interface ICEOVaultV2 {
     /// @notice Thrown when executeRebalance is called by non-self
     error RebalanceOnlySelf();
 
+    /// @notice Thrown when deployDeposit is called by non-self
+    error DeployDepositOnlySelf();
+
     // ══════════════════════════════════════════════════════════════
     //                         STRUCTS
     // ══════════════════════════════════════════════════════════════
@@ -198,6 +183,12 @@ interface ICEOVaultV2 {
         uint256[] withdrawAmounts;
         address[] depositVaults;
         uint256[] depositAmounts;
+    }
+
+    /// @notice Top 10 snapshot (per epoch, for fee distribution)
+    struct Top10Snapshot {
+        uint8 count;
+        address[10] agents;
     }
 
     /// @notice Represents a registered agent in the protocol
@@ -249,8 +240,8 @@ interface ICEOVaultV2 {
         uint256 indexed epoch, uint256 indexed proposalId, address indexed voter, bool support, uint256 weight
     );
 
-    /// @notice Emitted when the CEO executes the winning proposal
-    event Executed(uint256 indexed epoch, uint256 proposalId, address ceo);
+    /// @notice Emitted when the winning proposal is executed (anyone can execute)
+    event Executed(uint256 indexed epoch, uint256 indexed proposalId, address indexed executor);
 
     /// @notice Emitted when an epoch is settled
     event EpochSettled(uint256 indexed epoch, bool profitable, int256 revenue);
@@ -273,11 +264,8 @@ interface ICEOVaultV2 {
     /// @notice Emitted when a whitelisted target is set or unset
     event WhitelistedTargetSet(address indexed target, bool allowed);
 
-    /// @notice Emitted when performance fee is accrued at epoch settlement
-    event PerformanceFeeAccrued(uint256 indexed epoch, uint256 usdcAmount);
-
-    /// @notice Emitted when performance fee USDC is converted to $CEO
-    event PerformanceFeeConverted(uint256 ceoAmount, address indexed executor);
+    /// @notice Emitted when entry fee recipient is updated
+    event EntryFeeRecipientSet(address indexed recipient);
 
     /// @notice Emitted when treasury address is updated
     event TreasuryUpdated(address indexed newTreasury);
@@ -317,4 +305,10 @@ interface ICEOVaultV2 {
 
     /// @notice Emitted when an allowed selector is set for a target
     event AllowedSelectorSet(address indexed target, bytes4 indexed selector, bool allowed);
+
+    /// @notice Emitted when the default allocation for the deposit hook is set
+    event DefaultAllocationSet(uint256 count);
+
+    /// @notice Emitted when the default allocation is cleared (deposit hook disabled)
+    event DefaultAllocationCleared();
 }

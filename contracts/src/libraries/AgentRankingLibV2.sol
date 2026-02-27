@@ -1,49 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ICEOVault} from "../v1/ICEOVault.sol";
+import {ICEOVaultV2} from "../ICEOVaultV2.sol";
 
-/// @title AgentRankingLib
-/// @notice External library for ranking active CEOVault agents
-library AgentRankingLib {
-    /// @notice Return top and second active agents by score
-    /// @param s_agentList Enumerable list of all registered agents
-    /// @param s_agents Agent registry mapping
-    /// @return topAddr Highest-scoring active agent (or zero address)
-    /// @return secondAddr Second highest-scoring active agent (or zero address)
-    function getTopTwoAgents(
-        address[] storage s_agentList,
-        mapping(address => ICEOVault.Agent) storage s_agents
-    ) external view returns (address topAddr, address secondAddr) {
-        int256 topScore = type(int256).min;
-        int256 secondScore = type(int256).min;
-
-        uint256 len = s_agentList.length;
-        for (uint256 i = 0; i < len; i++) {
-            address agentAddr = s_agentList[i];
-            if (!s_agents[agentAddr].active) continue;
-
-            int256 score = s_agents[agentAddr].score;
-            if (score > topScore) {
-                secondAddr = topAddr;
-                secondScore = topScore;
-                topAddr = agentAddr;
-                topScore = score;
-            } else if (score > secondScore) {
-                secondAddr = agentAddr;
-                secondScore = score;
-            }
-        }
-    }
-
+/// @title AgentRankingLibV2
+/// @notice External library for ranking active CEOVaultV2 agents
+library AgentRankingLibV2 {
     /// @notice Return active agents sorted by descending score
     /// @param s_agentList Enumerable list of all registered agents
-    /// @param s_agents Agent registry mapping
+    /// @param s_agents Agent registry mapping (ICEOVaultV2.Agent)
     /// @return rankedAgents Sorted agent addresses (active only)
     /// @return rankedScores Sorted agent scores aligned with rankedAgents
     function getLeaderboard(
         address[] storage s_agentList,
-        mapping(address => ICEOVault.Agent) storage s_agents
+        mapping(address => ICEOVaultV2.Agent) storage s_agents
     ) external view returns (address[] memory rankedAgents, int256[] memory rankedScores) {
         uint256 len = s_agentList.length;
         rankedAgents = new address[](len);
