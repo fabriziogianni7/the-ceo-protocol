@@ -187,7 +187,7 @@ export default function HomePage() {
         {" · "}
         <a href="https://nad.fun/tokens/0xCA26f09831A15dCB9f9D47CE1cC2e3B086467777" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--primary)]">$CEO</a>
         {" · "}
-        <a href="https://fabri-dev.vercel.io" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--primary)]">fabriziogianni7</a>
+        <a href="https://fabri-dev.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--primary)]">fabriziogianni7 Website</a>
       </footer>
     </main>
   );
